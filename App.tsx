@@ -12,7 +12,7 @@ import { ATTENDANCE_ROUTE, BLACKLIST_ROUTE } from './brainstorm';
 import { refreshOwnLeaderboardPublic, toPublicLeaderboardRow } from './lib/leaderboard';
 import SplashScreen from './components/SplashScreen';
 import PartnershipLogos from './components/PartnershipLogos';
-import { DEFAULT_PREP_MODE, PREP_MODE_FEATURES, PREP_MODE_LABELS, getTestPrepMode, hasActivePrepLicense, isPrepFeatureEnabled, normalizePrepMode } from './lib/prepModes';
+import { DEFAULT_PREP_MODE, PREP_MODE_FEATURES, PREP_MODE_LABELS, getRequiredSubjectsForTest, getTestPrepMode, hasActivePrepLicense, isPrepFeatureEnabled, normalizePrepMode } from './lib/prepModes';
 
 const Auth = lazy(() => import('./components/Auth'));
 const PrepSelector = lazy(() => import('./components/PrepSelector'));
@@ -497,7 +497,7 @@ const App: React.FC = () => {
 
   const isStaffUser = (user: User | null) => {
     if (!user) return false;
-    return user.role === 'root-admin';
+    return user.role === 'admin' || user.role === 'root-admin';
   };
 
   const hasActiveSubscription = (user: User | null) => {
@@ -515,6 +515,24 @@ const App: React.FC = () => {
     if (prepMode !== DEFAULT_PREP_MODE) return true;
     const deadlineMs = Date.parse(freeAccessEndsAtIso);
     return Number.isFinite(deadlineMs) && Date.now() > deadlineMs;
+  };
+
+  const getTestLicenseBlockReason = (user: User | null, test: MockTest) => {
+    if (!user || isStaffUser(user)) return null;
+    const testPrepMode = getTestPrepMode(test);
+    const requiredSubjects = getRequiredSubjectsForTest(test);
+    if (hasActivePrepLicense(user, testPrepMode, requiredSubjects)) return null;
+    if (hasActivePrepLicense(user, testPrepMode) && requiredSubjects.length > 0) {
+      return `Your ${PREP_MODE_LABELS[testPrepMode]} license does not cover: ${requiredSubjects.join(', ')}.`;
+    }
+    if (testPrepMode !== DEFAULT_PREP_MODE) {
+      return `Activate a ${PREP_MODE_LABELS[testPrepMode]} license before starting this test.`;
+    }
+    const deadlineMs = Date.parse(freeAccessEndsAtIso);
+    if (Number.isFinite(deadlineMs) && Date.now() > deadlineMs) {
+      return 'Activate your license key in Settings before starting this test.';
+    }
+    return null;
   };
 
   useEffect(() => {
@@ -1051,8 +1069,9 @@ const App: React.FC = () => {
       const test = { ...testDoc.data(), id: testDoc.id } as MockTest & { isPaused?: boolean };
       const testPrepMode = getTestPrepMode(test);
       setSelectedPrepMode(testPrepMode);
-      if (isReadOnlyForUnactivatedUser(userObj, testPrepMode)) {
-        toast.warning('Activation required', `Activate your ${PREP_MODE_LABELS[testPrepMode]} license key to open shared tests.`);
+      const licenseBlockReason = getTestLicenseBlockReason(userObj, test);
+      if (licenseBlockReason) {
+        toast.warning('Activation required', licenseBlockReason);
         setShowMonetizationModal(true);
         clearLinkedTestId();
         return false;
@@ -1614,6 +1633,10 @@ const App: React.FC = () => {
 
       const durationDays = Number(keyData?.durationDays) > 0 ? Number(keyData.durationDays) : 365;
       const targetPrepMode = normalizePrepMode(keyData?.prepMode || selectedPrepMode);
+      const keySubjects = Array.isArray(keyData?.subjects)
+        ? keyData.subjects.map((subject: unknown) => String(subject || '').trim()).filter(Boolean)
+        : [];
+      const licenseScope = keyData?.scope === 'subjects' && keySubjects.length > 0 ? 'subjects' : 'all';
       const existingLicense = currentUser.licenses?.[targetPrepMode];
       const currentEndsMs = Date.parse(existingLicense?.endsAt || (targetPrepMode === DEFAULT_PREP_MODE ? currentUser.subscriptionEndsAt || '' : ''));
       const baseMs = Number.isFinite(currentEndsMs) && currentEndsMs > Date.now() ? currentEndsMs : Date.now();
@@ -1623,7 +1646,9 @@ const App: React.FC = () => {
         status: 'active' as const,
         activatedAt: nowIso,
         endsAt: nextEndsAt,
-        key
+        key,
+        scope: licenseScope,
+        subjects: licenseScope === 'subjects' ? keySubjects : []
       };
       const userPatch: Record<string, any> = {
         [`licenses.${targetPrepMode}`]: licensePatch,
@@ -1643,6 +1668,8 @@ const App: React.FC = () => {
         isUsed: true,
         status: 'used',
         prepMode: targetPrepMode,
+        scope: licenseScope,
+        subjects: licenseScope === 'subjects' ? keySubjects : [],
         redeemedBy: currentUser.id,
         redeemedByEmail: currentUser.email,
         redeemedAt: nowIso
@@ -1663,7 +1690,12 @@ const App: React.FC = () => {
       });
       setShowMonetizationModal(false);
       setIsMonetizationLocked(false);
-      toast.success('Activated', `${PREP_MODE_LABELS[targetPrepMode]} license activated successfully.`);
+      toast.success(
+        'Activated',
+        licenseScope === 'subjects'
+          ? `${PREP_MODE_LABELS[targetPrepMode]} activated for ${keySubjects.join(', ')}.`
+          : `${PREP_MODE_LABELS[targetPrepMode]} license activated successfully.`
+      );
       return true;
     } catch (err) {
       console.error('Activation failed:', err);
@@ -1820,9 +1852,10 @@ const App: React.FC = () => {
           onSwitchPrepMode={() => setCurrentView('prep-selector')}
           onLogout={() => auth.signOut()} 
           onStartTest={async (test, options) => {
-            if (isReadOnlyForUnactivatedUser(currentUser)) {
+            const licenseBlockReason = getTestLicenseBlockReason(currentUser, test);
+            if (licenseBlockReason) {
               setShowMonetizationModal(true);
-              toast.warning('Activation required', 'Activate your license key in Settings before starting a test.');
+              toast.warning('Activation required', licenseBlockReason);
               return;
             }
             const passwordStatus = verifyTestPassword(test);

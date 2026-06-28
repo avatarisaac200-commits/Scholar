@@ -316,6 +316,21 @@ service cloud.firestore {
       allow get: if signedIn();
       allow list: if isRootAdmin();
       allow create, update, delete: if isRootAdmin();
+      allow update: if
+        signedIn() &&
+        resource.data.status == 'new' &&
+        resource.data.isUsed == false &&
+        request.resource.data.status == 'used' &&
+        request.resource.data.isUsed == true &&
+        request.resource.data.redeemedBy == request.auth.uid &&
+        request.resource.data.redeemedByEmail is string &&
+        request.resource.data.redeemedAt is string &&
+        request.resource.data.code == resource.data.code &&
+        request.resource.data.prepMode == resource.data.prepMode &&
+        request.resource.data.durationDays == resource.data.durationDays &&
+        request.resource.data.createdBy == resource.data.createdBy &&
+        request.resource.data.createdByName == resource.data.createdByName &&
+        request.resource.data.createdAt == resource.data.createdAt;
     }
 
     match /questionTagInsights/{tagId} {

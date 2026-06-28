@@ -676,6 +676,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, initialTab = 'que
   const [bulkKeyCount, setBulkKeyCount] = useState(10);
   const [bulkKeyDurationDays, setBulkKeyDurationDays] = useState(365);
   const [licenseKeyPrepMode, setLicenseKeyPrepMode] = useState<PrepMode>(DEFAULT_PREP_MODE);
+  const [licenseKeyScope, setLicenseKeyScope] = useState<'all' | 'subjects'>('all');
+  const [licenseKeySubjects, setLicenseKeySubjects] = useState('');
   const [generatedKeys, setGeneratedKeys] = useState<string[]>([]);
   const [keyToolLoading, setKeyToolLoading] = useState(false);
   const [deadlineInput, setDeadlineInput] = useState(toWatInputValue(DEFAULT_FREE_ACCESS_ENDS_AT_ISO));
@@ -1740,6 +1742,9 @@ Rules:
         examTemplateName: selectedExamTemplate?.name || '',
         examStructureSource: selectedExamTemplate?.structureSource || 'admin-configured',
         officialStructureNote: selectedExamTemplate?.officialStructureNote || '',
+        scoringNote: selectedExamTemplate?.scoringNote || '',
+        optionCount: selectedExamTemplate?.optionCount || null,
+        officialDetailsStatus: selectedExamTemplate?.officialDetailsStatus || 'unspecified',
         totalDurationSeconds: testDuration * 60,
         sections: sectionsToPersist,
         generationMode: testGenerationMode,
@@ -2427,10 +2432,18 @@ Rules:
     processCsvForDynamicTest(file);
   };
 
-  const saveGeneratedKeyDocs = async (codes: string[], durationDays: number, prepMode: PrepMode) => {
+  const parseLicenseSubjects = () => {
+    return licenseKeySubjects
+      .split(',')
+      .map((subject) => subject.trim())
+      .filter(Boolean);
+  };
+
+  const saveGeneratedKeyDocs = async (codes: string[], durationDays: number, prepMode: PrepMode, scope: 'all' | 'subjects', subjects: string[]) => {
     const nowIso = new Date().toISOString();
     const batch = writeBatch(db);
     const normalizedDays = Math.max(1, Math.floor(durationDays || 365));
+    const normalizedScope = scope === 'subjects' && subjects.length > 0 ? 'subjects' : 'all';
     codes.forEach((code) => {
       const ref = doc(db, 'licenseKeys', code);
       batch.set(ref, {
@@ -2438,6 +2451,8 @@ Rules:
         status: 'new',
         isUsed: false,
         prepMode,
+        scope: normalizedScope,
+        subjects: normalizedScope === 'subjects' ? subjects : [],
         durationDays: normalizedDays,
         createdBy: user.id,
         createdByName: user.name,
@@ -2451,10 +2466,15 @@ Rules:
     if (!canManageKeys) return;
     setKeyToolLoading(true);
     try {
+      const subjects = parseLicenseSubjects();
+      if (licenseKeyScope === 'subjects' && subjects.length === 0) {
+        notify('Enter at least one subject for subject-specific keys.');
+        return;
+      }
       const code = makeLicenseKey();
-      await saveGeneratedKeyDocs([code], singleKeyDurationDays, licenseKeyPrepMode);
+      await saveGeneratedKeyDocs([code], singleKeyDurationDays, licenseKeyPrepMode, licenseKeyScope, subjects);
       setGeneratedKeys([code]);
-      notify(`Single ${PREP_MODE_LABELS[licenseKeyPrepMode]} activation key generated.`);
+      notify(`Single ${PREP_MODE_LABELS[licenseKeyPrepMode]} ${licenseKeyScope === 'subjects' ? 'subject' : 'all-subject'} activation key generated.`);
     } catch (err: any) {
       notify('Failed to generate key. ' + (err?.message || ''));
     } finally {
@@ -2467,14 +2487,19 @@ Rules:
     const count = Math.max(1, Math.min(500, Math.floor(bulkKeyCount || 1)));
     setKeyToolLoading(true);
     try {
+      const subjects = parseLicenseSubjects();
+      if (licenseKeyScope === 'subjects' && subjects.length === 0) {
+        notify('Enter at least one subject for subject-specific keys.');
+        return;
+      }
       const codeSet = new Set<string>();
       while (codeSet.size < count) {
         codeSet.add(makeLicenseKey());
       }
       const codes = Array.from(codeSet);
-      await saveGeneratedKeyDocs(codes, bulkKeyDurationDays, licenseKeyPrepMode);
+      await saveGeneratedKeyDocs(codes, bulkKeyDurationDays, licenseKeyPrepMode, licenseKeyScope, subjects);
       setGeneratedKeys(codes);
-      notify(`Generated ${codes.length} ${PREP_MODE_LABELS[licenseKeyPrepMode]} activation keys.`);
+      notify(`Generated ${codes.length} ${PREP_MODE_LABELS[licenseKeyPrepMode]} ${licenseKeyScope === 'subjects' ? 'subject' : 'all-subject'} activation keys.`);
     } catch (err: any) {
       notify('Bulk generation failed. ' + (err?.message || ''));
     } finally {
@@ -2803,12 +2828,21 @@ Rules:
                         <span className="px-3 py-1 rounded-lg bg-amber-100 text-amber-700 text-[10px] font-black uppercase tracking-widest">
                           {selectedExamTemplate.structureSource.replace('-', ' ')}
                         </span>
+                        {selectedExamTemplate.officialDetailsStatus && (
+                          <span className="px-3 py-1 rounded-lg bg-slate-100 text-slate-500 text-[10px] font-black uppercase tracking-widest">
+                            {selectedExamTemplate.officialDetailsStatus.replace('-', ' ')}
+                          </span>
+                        )}
                         <span className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
-                          {selectedExamTemplate.durationMinutes} mins - {selectedExamTemplate.sections.reduce((sum, section) => sum + section.questionCount, 0)} questions
+                          {selectedExamTemplate.durationMinutes} mins - {(selectedExamTemplate.totalQuestions || selectedExamTemplate.sections.reduce((sum, section) => sum + section.questionCount, 0))} questions
+                          {selectedExamTemplate.optionCount ? ` - ${selectedExamTemplate.optionCount} options` : ''}
                         </span>
                       </div>
                       <p className="text-xs text-slate-500 leading-relaxed">{selectedExamTemplate.description}</p>
                       <p className="text-[11px] text-slate-400 leading-relaxed">{selectedExamTemplate.officialStructureNote}</p>
+                      {selectedExamTemplate.scoringNote && (
+                        <p className="text-[11px] text-slate-400 leading-relaxed">{selectedExamTemplate.scoringNote}</p>
+                      )}
                     </div>
                   )}
                   <button
@@ -3941,6 +3975,36 @@ Rules:
               </div>
               <p className="text-xs text-slate-500">
                 Default reference: April 2, 2026 at 00:00 WAT.
+              </p>
+            </div>
+
+            <div className="bg-white border border-slate-100 rounded-[2rem] p-8 shadow-sm space-y-4">
+              <h4 className="text-sm font-bold uppercase tracking-widest text-slate-900">License Coverage</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <label className="block text-xs font-bold uppercase tracking-widest text-slate-400">
+                  Coverage
+                  <select
+                    value={licenseKeyScope}
+                    onChange={(e) => setLicenseKeyScope(e.target.value as 'all' | 'subjects')}
+                    className="mt-2 w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 outline-none"
+                  >
+                    <option value="all">All subjects in prep mode</option>
+                    <option value="subjects">Specific subjects only</option>
+                  </select>
+                </label>
+                <label className="block text-xs font-bold uppercase tracking-widest text-slate-400">
+                  Subjects
+                  <input
+                    value={licenseKeySubjects}
+                    onChange={(e) => setLicenseKeySubjects(e.target.value)}
+                    disabled={licenseKeyScope === 'all'}
+                    placeholder="Use of English, Mathematics"
+                    className="mt-2 w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 outline-none disabled:opacity-40"
+                  />
+                </label>
+              </div>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Specific-subject keys unlock only tests whose required subjects match this comma-separated list. Leave coverage as all subjects for legacy full-access keys.
               </p>
             </div>
 

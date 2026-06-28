@@ -29,6 +29,8 @@ export interface User {
     activatedAt?: string;
     endsAt?: string;
     key?: string;
+    scope?: 'all' | 'subjects';
+    subjects?: string[];
   }>>;
   subscriptionStatus?: 'inactive' | 'active' | 'expired' | 'pending';
   subscriptionEndsAt?: string;
@@ -96,6 +98,10 @@ export interface ExamTemplate {
   name: string;
   description: string;
   durationMinutes: number;
+  totalQuestions?: number;
+  optionCount?: number;
+  scoringNote?: string;
+  officialDetailsStatus?: 'specified' | 'partially-specified' | 'unspecified';
   structureSource: ExamStructureSource;
   officialStructureNote: string;
   sections: ExamTemplateSection[];
@@ -125,6 +131,9 @@ export interface MockTest {
   examTemplateName?: string;
   examStructureSource?: ExamStructureSource;
   officialStructureNote?: string;
+  scoringNote?: string;
+  optionCount?: number;
+  officialDetailsStatus?: 'specified' | 'partially-specified' | 'unspecified';
   isArchived?: boolean;
   createdBy: string;
   creatorName: string;

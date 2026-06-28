@@ -242,8 +242,11 @@ const Dashboard: React.FC<DashboardProps> = ({
   const licenseEndsLabel = Number.isFinite(licenseEndsMs)
     ? new Date(licenseEndsMs).toLocaleDateString()
     : null;
+  const licenseSubjectLabel = activePrepLicense?.scope === 'subjects' && activePrepLicense.subjects?.length
+    ? ` - subjects: ${activePrepLicense.subjects.join(', ')}`
+    : '';
   const licenseStatusLabel = hasActivePrepLicense(user, prepMode)
-    ? `${PREP_MODE_LABELS[prepMode]} active${licenseEndsLabel ? ` (until: ${licenseEndsLabel})` : ''}`
+    ? `${PREP_MODE_LABELS[prepMode]} active${licenseEndsLabel ? ` (until: ${licenseEndsLabel})` : ''}${licenseSubjectLabel}`
     : `${PREP_MODE_LABELS[prepMode]} inactive`;
   const enrolledClassIds = Array.from(new Set(classEnrollments.filter((row) => row.userId === user.id).map((row) => row.courseId)));
   const visibleClassIds = isTeacher ? classOptions.map((item) => item.id) : enrolledClassIds;
