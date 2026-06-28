@@ -1,6 +1,8 @@
 
 export type UserRole = 'student' | 'admin' | 'root-admin';
 export type PrepMode = 'utme' | 'oau' | 'putme';
+export type ExamTemplateId = 'custom' | 'utme-standard' | 'oau-legacy' | 'putme-configurable';
+export type ExamStructureSource = 'official' | 'institution-practice' | 'admin-configured';
 export type DifficultyLevel = 'easy' | 'medium' | 'hard';
 export type QuestionStatus = 'draft' | 'approved';
 export type TestGenerationMode = 'fixed' | 'dynamic' | 'csv-dynamic';
@@ -21,6 +23,7 @@ export interface User {
   socialOnboardingCompletedAt?: string;
   emailVerified?: boolean;
   lastPrepMode?: PrepMode;
+  prepModeSelectedAt?: string;
   licenses?: Partial<Record<PrepMode, {
     status: 'inactive' | 'active' | 'expired' | 'pending';
     activatedAt?: string;
@@ -78,6 +81,26 @@ export interface TestSection {
   difficultyMix?: SectionDifficultyMix;
 }
 
+export interface ExamTemplateSection {
+  id: string;
+  name: string;
+  questionCount: number;
+  marksPerQuestion: number;
+  subjectFilter?: string;
+  tags?: string[];
+}
+
+export interface ExamTemplate {
+  id: ExamTemplateId;
+  prepMode: PrepMode;
+  name: string;
+  description: string;
+  durationMinutes: number;
+  structureSource: ExamStructureSource;
+  officialStructureNote: string;
+  sections: ExamTemplateSection[];
+}
+
 export interface CsvQuestionBundle {
   id: string;
   name: string;
@@ -98,6 +121,10 @@ export interface MockTest {
   maxAttempts?: number | null;
   accessPassword?: string;
   prepMode?: PrepMode;
+  examTemplateId?: ExamTemplateId;
+  examTemplateName?: string;
+  examStructureSource?: ExamStructureSource;
+  officialStructureNote?: string;
   isArchived?: boolean;
   createdBy: string;
   creatorName: string;

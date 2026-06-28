@@ -6,14 +6,26 @@ import { getFirestore, enableIndexedDbPersistence } from 'https://www.gstatic.co
 /**
  * Firebase configuration for Scholar.
  */
+const requiredFirebaseEnv = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
+};
+
+const missingFirebaseEnv = Object.entries(requiredFirebaseEnv)
+  .filter(([, value]) => !String(value || '').trim())
+  .map(([key]) => key);
+
+if (missingFirebaseEnv.length > 0) {
+  throw new Error(`Missing Scholar Firebase environment values: ${missingFirebaseEnv.join(', ')}`);
+}
+
 export const firebaseConfig = {
-  apiKey: "AIzaSyCw9TAxS-fsJSpyXUI7z3GiuU_EGP24cus",
-  authDomain: "aureus-medicos-cbt.firebaseapp.com",
-  projectId: "aureus-medicos-cbt",
-  storageBucket: "aureus-medicos-cbt.firebasestorage.app",
-  messagingSenderId: "367913973401",
-  appId: "1:367913973401:web:acafe5afd89216710b6a08",
-  measurementId: "G-BXT9JZTKNY"
+  ...requiredFirebaseEnv,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || undefined
 };
 
 // Initialize Firebase services

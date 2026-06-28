@@ -1,4 +1,4 @@
-const CACHE_NAME = 'aureus-medicos-cbt-v4';
+const CACHE_NAME = 'scholar-cbt-v1';
 const STATIC_PATHS = [
   '/',
   '/index.html',
@@ -118,7 +118,7 @@ self.addEventListener('fetch', (event) => {
 });
 
 self.addEventListener('push', (event) => {
-  let payload = { title: 'Aureus Medicos CBT', body: 'You have a new notification.', url: '/' };
+  let payload = { title: 'Scholar', body: 'You have a new notification.', url: '/' };
   try {
     const data = event.data?.json?.();
     if (data && typeof data === 'object') {

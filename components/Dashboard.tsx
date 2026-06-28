@@ -4,8 +4,7 @@ import { db } from '../firebase';
 import { collection, query, where, onSnapshot, getDocs, getDocsFromServer, limit, addDoc, updateDoc, deleteDoc, doc, orderBy, setDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
 import logo from '../assets/scholar-main.png';
 import PartnershipLogos from './PartnershipLogos';
-import { PREP_MODE_FEATURES, PREP_MODE_LABELS, getTestPrepMode, hasActivePrepLicense } from '../lib/prepModes';
-import factsJson from '../data/facts.json';
+import { DEFAULT_PREP_MODE, PREP_MODE_FEATURES, PREP_MODE_LABELS, getTestPrepMode, hasActivePrepLicense } from '../lib/prepModes';
 import { AppTheme, THEMES } from '../theme';
 import { toast } from './ui/Toast';
 import { confirmDialog } from './ui/ConfirmDialog';
@@ -47,15 +46,8 @@ interface DashboardProps {
   onOpenSocialProfileSetup?: () => void;
 }
 
-type TestSortMode = 'updated' | 'name' | 'duration' | 'attempts';
 type MainTab = 'home' | 'announcements' | 'schedule' | 'community' | 'videos' | 'ranks' | 'create' | 'reviews' | 'settings' | 'profile';
 type MobileUiMode = 'dark' | 'light';
-type TestShelf = 'all' | 'unfiled' | 'archived' | string;
-
-interface TestFolder {
-  id: string;
-  name: string;
-}
 
 interface RankRow {
   rank: number;
@@ -79,18 +71,6 @@ interface TestLeaderboardRow {
   completedAt: string;
 }
 
-interface DailyFactEntry {
-  id: string;
-  text: string;
-  category: string;
-  difficulty: 'easy' | 'medium' | 'hard';
-  tags: string[];
-}
-
-const MAX_TEST_FOLDERS = 10;
-const DAILY_FACT_DISMISSED_PREFIX = 'dailyFactDismissed';
-const DAILY_FACT_NOTIFIED_PREFIX = 'dailyFactNotified';
-const DAILY_FACTS = Array.isArray(factsJson) ? factsJson as DailyFactEntry[] : [];
 const THEME_COLOR_FIELDS: Array<{ key: keyof CustomThemeConfig; label: string }> = [
   { key: 'bgStart', label: 'Background Start' },
   { key: 'bgEnd', label: 'Background End' },
@@ -103,27 +83,6 @@ const THEME_COLOR_FIELDS: Array<{ key: keyof CustomThemeConfig; label: string }>
   { key: 'card', label: 'Card' },
   { key: 'border', label: 'Border' }
 ];
-
-const getUtcDateKey = (date = new Date()) => {
-  const year = date.getUTCFullYear();
-  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(date.getUTCDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-const getUtcDayNumber = (date = new Date()) => {
-  const utcMidnightMs = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
-  return Math.floor(utcMidnightMs / 86400000);
-};
-
-const getDailyFact = (date = new Date()): DailyFactEntry | null => {
-  if (DAILY_FACTS.length === 0) return null;
-  const index = ((getUtcDayNumber(date) % DAILY_FACTS.length) + DAILY_FACTS.length) % DAILY_FACTS.length;
-  return DAILY_FACTS[index] || null;
-};
-
-const getDailyFactDismissedKey = (userId: string, dateKey: string) => `${DAILY_FACT_DISMISSED_PREFIX}:${userId}:${dateKey}`;
-const getDailyFactNotifiedKey = (userId: string, dateKey: string) => `${DAILY_FACT_NOTIFIED_PREFIX}:${userId}:${dateKey}`;
 
 const LeaderboardModal: React.FC<{ test: MockTest, onClose: () => void }> = ({ test, onClose }) => {
   const [topScores, setTopScores] = useState<TestLeaderboardRow[]>([]);
@@ -222,7 +181,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   onUserProfileUpdate,
   onOpenSocialProfileSetup
 }) => {
-  const prepFeatures = PREP_MODE_FEATURES[prepMode];
+  const prepFeatures = PREP_MODE_FEATURES[prepMode] || PREP_MODE_FEATURES[DEFAULT_PREP_MODE];
   const parseIsoDate = (value?: string) => {
     const ms = Date.parse(value || '');
     return Number.isFinite(ms) ? ms : 0;
@@ -236,25 +195,6 @@ const Dashboard: React.FC<DashboardProps> = ({
       .slice(0, maxRows);
   };
 
-  const getFolderStorageKey = () => `testFolders:${user.id}`;
-  const getFolderAssignmentsStorageKey = () => `testFolderAssignments:${user.id}`;
-  const getSortModeStorageKey = () => `testSortMode:${user.id}`;
-  const getSelectedFolderStorageKey = () => `selectedTestFolder:${user.id}`;
-
-  const normalizeFolderList = (value: any): TestFolder[] => {
-    if (!Array.isArray(value)) return [];
-    const seen = new Set<string>();
-    const normalized: TestFolder[] = [];
-    value.forEach((raw) => {
-      const id = String(raw?.id || '').trim();
-      const name = String(raw?.name || '').trim();
-      if (!id || !name || seen.has(id)) return;
-      seen.add(id);
-      normalized.push({ id, name });
-    });
-    return normalized.slice(0, MAX_TEST_FOLDERS);
-  };
-
   const [tests, setTests] = useState<MockTest[]>([]);
   const [history, setHistory] = useState<ExamResult[]>([]);
   const [loading, setLoading] = useState(true);
@@ -262,14 +202,8 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [errors, setErrors] = useState<string | null>(null);
   const [showLeaderboard, setShowLeaderboard] = useState<MockTest | null>(null);
   const [activeTab, setActiveTab] = useState<MainTab>('home');
-  const [testFolders, setTestFolders] = useState<TestFolder[]>([]);
-  const [newFolderName, setNewFolderName] = useState('');
-  const [selectedFolderId, setSelectedFolderId] = useState<TestShelf>('all');
-  const [testFolderAssignments, setTestFolderAssignments] = useState<Record<string, string>>({});
-  const [sortMode, setSortMode] = useState<TestSortMode>('updated');
   const [activationInput, setActivationInput] = useState('');
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [preferencesHydrated, setPreferencesHydrated] = useState(false);
   const [lowDataMode, setLowDataMode] = useState(false);
   const [quizName, setQuizName] = useState('');
   const [quizDescription, setQuizDescription] = useState('');
@@ -289,7 +223,6 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [profileTitle, setProfileTitle] = useState(user.title || '');
   const [profileAvatarUrl, setProfileAvatarUrl] = useState(user.avatarUrl || '');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
-  const [showDailyFact, setShowDailyFact] = useState(false);
   const [classOptions, setClassOptions] = useState<Course[]>([]);
   const [classEnrollments, setClassEnrollments] = useState<Array<{ id: string; courseId: string; userId: string; userName: string }>>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -312,9 +245,6 @@ const Dashboard: React.FC<DashboardProps> = ({
   const licenseStatusLabel = hasActivePrepLicense(user, prepMode)
     ? `${PREP_MODE_LABELS[prepMode]} active${licenseEndsLabel ? ` (until: ${licenseEndsLabel})` : ''}`
     : `${PREP_MODE_LABELS[prepMode]} inactive`;
-  const dailyFactDateKey = getUtcDateKey();
-  const dailyFact = getDailyFact();
-  const dailyFactBadge = dailyFact?.category?.replace(/-/g, ' ') || 'daily fact';
   const enrolledClassIds = Array.from(new Set(classEnrollments.filter((row) => row.userId === user.id).map((row) => row.courseId)));
   const visibleClassIds = isTeacher ? classOptions.map((item) => item.id) : enrolledClassIds;
   const unreadAnnouncementIds = new Set(
@@ -345,100 +275,13 @@ const Dashboard: React.FC<DashboardProps> = ({
     setNotificationsEnabled(stored !== 'off');
     const lowDataStored = window.localStorage.getItem(`lowDataMode:${user.id}`);
     setLowDataMode(lowDataStored === 'on');
-    try {
-      const folderRaw = window.localStorage.getItem(getFolderStorageKey());
-      if (folderRaw) setTestFolders(normalizeFolderList(JSON.parse(folderRaw)));
-    } catch {
-      setTestFolders([]);
-    }
-    try {
-      const assignmentRaw = window.localStorage.getItem(getFolderAssignmentsStorageKey());
-      if (assignmentRaw) {
-        const parsed = JSON.parse(assignmentRaw);
-        if (parsed && typeof parsed === 'object') {
-          setTestFolderAssignments(parsed as Record<string, string>);
-        }
-      }
-    } catch {
-      setTestFolderAssignments({});
-    }
-    const storedSortMode = window.localStorage.getItem(getSortModeStorageKey()) as TestSortMode | null;
-    if (storedSortMode && ['updated', 'name', 'duration', 'attempts'].includes(storedSortMode)) {
-      setSortMode(storedSortMode);
-    }
-    const storedSelectedFolder = window.localStorage.getItem(getSelectedFolderStorageKey());
-    if (storedSelectedFolder) {
-      setSelectedFolderId(storedSelectedFolder as 'all' | 'unfiled' | string);
-    }
-    setPreferencesHydrated(true);
   }, [user.id]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || !dailyFact) {
-      setShowDailyFact(false);
-      return;
-    }
-    const dismissed = window.localStorage.getItem(getDailyFactDismissedKey(user.id, dailyFactDateKey)) === '1';
-    setShowDailyFact(!dismissed);
-  }, [dailyFact, dailyFactDateKey, user.id]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || !preferencesHydrated || !dailyFact || !notificationsEnabled) return;
-    const notifyKey = getDailyFactNotifiedKey(user.id, dailyFactDateKey);
-    if (window.localStorage.getItem(notifyKey) === '1') return;
-
-    toast.info('Fact of the Day', dailyFact.text);
-    window.localStorage.setItem(notifyKey, '1');
-
-    if (!('Notification' in window)) return;
-    const sendBrowserNotification = () => {
-      try {
-        new Notification('Fact of the Day', { body: dailyFact.text });
-      } catch {
-        // Ignore browser notification failures.
-      }
-    };
-
-    if (Notification.permission === 'granted') {
-      sendBrowserNotification();
-      return;
-    }
-    if (Notification.permission !== 'default') return;
-
-    Notification.requestPermission()
-      .then((permission) => {
-        if (permission === 'granted') sendBrowserNotification();
-      })
-      .catch(() => {
-        // Ignore browser notification failures.
-      });
-  }, [dailyFact, dailyFactDateKey, notificationsEnabled, preferencesHydrated, user.id]);
 
   useEffect(() => {
     setProfileName(user.name || '');
     setProfileTitle(user.title || '');
     setProfileAvatarUrl(user.avatarUrl || '');
   }, [user.name, user.title, user.avatarUrl]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem(getFolderStorageKey(), JSON.stringify(testFolders));
-  }, [testFolders, user.id]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem(getFolderAssignmentsStorageKey(), JSON.stringify(testFolderAssignments));
-  }, [testFolderAssignments, user.id]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem(getSortModeStorageKey(), sortMode);
-  }, [sortMode, user.id]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem(getSelectedFolderStorageKey(), selectedFolderId);
-  }, [selectedFolderId, user.id]);
 
   const copyTestLink = async (test: MockTest) => {
     if (isReadOnly) return;
@@ -465,13 +308,6 @@ const Dashboard: React.FC<DashboardProps> = ({
     setNotificationsEnabled(next);
     if (typeof window !== 'undefined') {
       window.localStorage.setItem(`notifications:${user.id}`, next ? 'on' : 'off');
-    }
-  };
-
-  const dismissDailyFact = () => {
-    setShowDailyFact(false);
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(getDailyFactDismissedKey(user.id, dailyFactDateKey), '1');
     }
   };
 
@@ -865,12 +701,6 @@ const Dashboard: React.FC<DashboardProps> = ({
     return () => unsub();
   }, [user.id]);
 
-  if (loading) {
-    return (
-      <div className="h-full w-full flex flex-col items-center justify-center bg-slate-50"><img src={logo} className="w-12 h-12 animate-pulse mb-4" alt="Loading" /><p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Opening Portal...</p></div>
-    );
-  }
-
   const copyQuizLink = async (quizId: string) => {
     const link = `${window.location.origin}/quiz/${quizId}`;
     try {
@@ -1217,77 +1047,9 @@ const Dashboard: React.FC<DashboardProps> = ({
     }, { quizMode: true });
   };
 
-  const createFolder = () => {
-    const name = newFolderName.trim();
-    if (!name) {
-      toast.warning('Missing folder name', 'Enter a folder name.');
-      return;
-    }
-    if (testFolders.length >= MAX_TEST_FOLDERS) {
-      toast.warning('Folder limit reached', `You can only create up to ${MAX_TEST_FOLDERS} folders.`);
-      return;
-    }
-    const normalized = name.toLowerCase();
-    if (testFolders.some(folder => folder.name.toLowerCase() === normalized)) {
-      toast.warning('Duplicate folder', 'A folder with this name already exists.');
-      return;
-    }
-    const id = `folder_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-    setTestFolders(prev => [...prev, { id, name }]);
-    setNewFolderName('');
-  };
-
-  const removeFolder = (folderId: string) => {
-    confirmDialog({
-      title: 'Remove folder?',
-      message: 'Remove this folder? Tests in it will become unfiled.',
-      confirmText: 'Remove',
-      variant: 'danger'
-    }).then((ok) => {
-      if (!ok) return;
-      setTestFolders(prev => prev.filter(folder => folder.id !== folderId));
-      setTestFolderAssignments(prev => {
-        const next: Record<string, string> = {};
-        Object.entries(prev).forEach(([testId, assignedFolderId]) => {
-          if (assignedFolderId !== folderId) next[testId] = assignedFolderId;
-        });
-        return next;
-      });
-      if (selectedFolderId === folderId) {
-        setSelectedFolderId('all');
-      }
-    });
-  };
-
-  const assignTestFolder = (testId: string, folderId: string) => {
-    setTestFolderAssignments(prev => {
-      const next = { ...prev };
-      if (!folderId) {
-        delete next[testId];
-      } else {
-        next[testId] = folderId;
-      }
-      return next;
-    });
-  };
-
-  const activeFolderIds = new Set(testFolders.map(folder => folder.id));
   const viewableTests = tests
-    .filter(test => {
-      const folderId = testFolderAssignments[test.id];
-      const isArchived = Boolean(test.isArchived);
-      if (selectedFolderId === 'archived') return isArchived;
-      if (isArchived) return false;
-      if (selectedFolderId === 'all') return true;
-      if (selectedFolderId === 'unfiled') return !folderId || !activeFolderIds.has(folderId);
-      return folderId === selectedFolderId;
-    })
-    .sort((a, b) => {
-      if (sortMode === 'name') return a.name.localeCompare(b.name);
-      if (sortMode === 'duration') return (a.totalDurationSeconds || 0) - (b.totalDurationSeconds || 0);
-      if (sortMode === 'attempts') return (testCounts[b.id] || 0) - (testCounts[a.id] || 0);
-      return parseIsoDate(((b as any).updatedAt || b.createdAt)) - parseIsoDate(((a as any).updatedAt || a.createdAt));
-    });
+    .filter(test => !test.isArchived)
+    .sort((a, b) => parseIsoDate(((b as any).updatedAt || b.createdAt)) - parseIsoDate(((a as any).updatedAt || a.createdAt)));
 
   const navTabs: Array<{ id: MainTab; label: string }> = [
     { id: 'home', label: 'Home' },
@@ -1307,6 +1069,12 @@ const Dashboard: React.FC<DashboardProps> = ({
       setActiveTab('home');
     }
   }, [activeTab, navTabs]);
+
+  if (loading) {
+    return (
+      <div className="h-full w-full flex flex-col items-center justify-center bg-slate-50"><img src={logo} className="w-12 h-12 animate-pulse mb-4" alt="Loading" /><p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Opening Portal...</p></div>
+    );
+  }
 
   const renderTabIcon = (tabId: MainTab) => {
     if (tabId === 'home') {
@@ -1446,43 +1214,6 @@ const Dashboard: React.FC<DashboardProps> = ({
          </div>
       </div>
 
-      {showDailyFact && dailyFact && (
-        <div className="sticky top-[72px] z-40 px-4 md:px-6 pt-3">
-          <div className="mx-auto max-w-6xl rounded-[1.75rem] border border-amber-200 bg-gradient-to-r from-amber-50 via-white to-sky-50 shadow-sm">
-            <div className="flex items-start gap-3 px-4 py-4 md:px-6 md:py-5">
-              <div className="shrink-0 w-11 h-11 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center font-black shadow-sm">F</div>
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2 mb-1">
-                  <p className="text-xs font-black uppercase tracking-[0.24em] text-amber-700">Fact of the Day</p>
-                  <span className="px-2 py-1 rounded-full bg-slate-950 text-[10px] font-black uppercase tracking-widest text-amber-400">{dailyFactBadge}</span>
-                  <span className="px-2 py-1 rounded-full bg-white border border-slate-200 text-[10px] font-black uppercase tracking-widest text-slate-500">{dailyFact.difficulty}</span>
-                </div>
-                <p className="text-sm md:text-[15px] leading-relaxed text-slate-700">{dailyFact.text}</p>
-                {dailyFact.tags?.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-3">
-                    {dailyFact.tags.slice(0, 4).map((tag) => (
-                      <span key={tag} className="px-2 py-1 rounded-full bg-white border border-slate-200 text-[10px] font-black uppercase tracking-widest text-slate-500">
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={dismissDailyFact}
-                aria-label="Dismiss fact of the day"
-                className="shrink-0 w-10 h-10 rounded-xl border border-slate-200 bg-white text-slate-400 hover:text-slate-700 hover:border-slate-300"
-              >
-                <svg className="w-5 h-5 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {errors && (
         <div className="mx-6 mt-6 p-4 bg-red-50 border border-red-100 rounded-2xl text-red-600 font-bold text-xs uppercase tracking-widest">
           {errors}
@@ -1560,96 +1291,11 @@ const Dashboard: React.FC<DashboardProps> = ({
 
           {activeTab === 'home' && (
             <div className="space-y-6">
-              <section className="bg-white border border-slate-100 rounded-[2rem] p-6 shadow-sm">
-                <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 mb-4">
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-widest text-slate-500">Test Folders</p>
-                    <h3 className="text-lg font-bold text-slate-900">Focused Sorting</h3>
-                  </div>
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <input
-                      value={newFolderName}
-                      onChange={(e) => setNewFolderName(e.target.value)}
-                      placeholder="New folder name"
-                      className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold"
-                    />
-                    <button
-                      type="button"
-                      onClick={createFolder}
-                      disabled={testFolders.length >= MAX_TEST_FOLDERS}
-                      className="px-4 py-3 bg-slate-900 text-amber-500 rounded-xl text-xs font-black uppercase tracking-widest disabled:opacity-40"
-                    >
-                      Add Folder ({testFolders.length}/{MAX_TEST_FOLDERS})
-                    </button>
-                  </div>
-                </div>
-                <div className="v3-filter-scroll flex gap-2 mb-4 overflow-x-auto no-scrollbar whitespace-nowrap">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedFolderId('all')}
-                    className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest ${selectedFolderId === 'all' ? 'bg-slate-900 text-amber-500' : 'bg-slate-100 text-slate-600'}`}
-                  >
-                    All
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedFolderId('unfiled')}
-                    className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest ${selectedFolderId === 'unfiled' ? 'bg-slate-900 text-amber-500' : 'bg-slate-100 text-slate-600'}`}
-                  >
-                    Unfiled
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedFolderId('archived')}
-                    className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest ${selectedFolderId === 'archived' ? 'bg-slate-900 text-amber-500' : 'bg-slate-100 text-slate-600'}`}
-                  >
-                    Archived Tests
-                  </button>
-                  {testFolders.map(folder => (
-                    <div key={folder.id} className="inline-flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl pr-1 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedFolderId(folder.id)}
-                        className={`px-3 py-2 rounded-xl text-xs font-black uppercase tracking-widest ${selectedFolderId === folder.id ? 'bg-slate-900 text-amber-500' : 'text-slate-700'}`}
-                      >
-                        {folder.name}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => removeFolder(folder.id)}
-                        className="px-2 py-2 text-xs font-black text-red-500 uppercase"
-                      >
-                        x
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                  <p className="text-xs font-black uppercase tracking-widest text-slate-500">Sort by:</p>
-                  <div className="v3-sort-scroll flex gap-2 overflow-x-auto no-scrollbar whitespace-nowrap">
-                    {[
-                      { key: 'updated', label: 'Latest' },
-                      { key: 'name', label: 'Name' },
-                      { key: 'duration', label: 'Duration' },
-                      { key: 'attempts', label: 'Popularity' }
-                    ].map((item) => (
-                      <button
-                        key={item.key}
-                        type="button"
-                        onClick={() => setSortMode(item.key as TestSortMode)}
-                        className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest ${sortMode === item.key ? 'bg-amber-500 text-slate-950' : 'bg-slate-100 text-slate-600'}`}
-                      >
-                        {item.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </section>
               <div className="v3-layout-split grid grid-cols-1 xl:grid-cols-3 gap-10">
               <div className="xl:col-span-2 space-y-10">
                 <section>
                   <div className="flex items-center justify-between mb-8">
-                    <h2 className="text-xl font-bold text-slate-950 uppercase">{selectedFolderId === 'archived' ? 'Archived Tests' : 'Active Tests'}</h2>
+                    <h2 className="text-xl font-bold text-slate-950 uppercase">Active Tests</h2>
                     <p className="text-xs font-black uppercase tracking-widest text-slate-400">{viewableTests.length} visible</p>
                   </div>
                   <div className="v3-test-grid grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1669,6 +1315,14 @@ const Dashboard: React.FC<DashboardProps> = ({
                           <span className="bg-slate-50 text-slate-500 text-xs font-black px-3 py-1.5 rounded-lg uppercase whitespace-nowrap">{test.totalDurationSeconds / 60}m</span>
                         </div>
                         <p className="text-xs text-slate-400 mb-6 font-medium italic line-clamp-3 leading-relaxed">{test.description || 'Start this test.'}</p>
+                        {test.examTemplateName && (
+                          <div className="mb-4 p-3 rounded-xl bg-amber-50 border border-amber-100">
+                            <p className="text-[11px] font-black uppercase tracking-widest text-amber-700">{test.examTemplateName}</p>
+                            {test.officialStructureNote && (
+                              <p className="mt-1 text-xs text-amber-800/70 leading-relaxed">{test.officialStructureNote}</p>
+                            )}
+                          </div>
+                        )}
                         <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">
                           Taken by {testCounts[test.id] ?? 0} people
                         </div>
@@ -1683,19 +1337,6 @@ const Dashboard: React.FC<DashboardProps> = ({
                               Archived
                             </span>
                           )}
-                        </div>
-                        <div className="mb-4">
-                          <label className="text-xs font-black uppercase tracking-widest text-slate-500 block mb-2">Folder</label>
-                          <select
-                            value={testFolderAssignments[test.id] || ''}
-                            onChange={(e) => assignTestFolder(test.id, e.target.value)}
-                            className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold uppercase text-slate-700"
-                          >
-                            <option value="">Unfiled</option>
-                            {testFolders.map(folder => (
-                              <option key={folder.id} value={folder.id}>{folder.name}</option>
-                            ))}
-                          </select>
                         </div>
                         {hasBundles && (
                           <div className="mb-4 p-4 rounded-xl border border-sky-100 bg-sky-50">
@@ -1781,7 +1422,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                     {viewableTests.length === 0 && (
                       <div className="col-span-full py-16 text-center rounded-2xl border border-dashed border-slate-200 bg-white">
                         <p className="text-xs font-black uppercase tracking-widest text-slate-400">
-                          {selectedFolderId === 'archived' ? 'No archived tests available.' : 'No tests in this folder.'}
+                          No active tests available.
                         </p>
                       </div>
                     )}

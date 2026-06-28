@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useMemo, useEffect } from 'react';
-import { User, Question, TestSection, MockTest, ExamResult, DifficultyLevel, TestGenerationMode, CsvBundleCategoryField, CsvQuestionBundle, QuestionTagInsight, PrepMode } from '../types';
+import { User, Question, TestSection, MockTest, ExamResult, DifficultyLevel, TestGenerationMode, CsvBundleCategoryField, CsvQuestionBundle, QuestionTagInsight, PrepMode, ExamTemplateId } from '../types';
 import { db } from '../firebase';
 import { collection, addDoc, getDocs, getDoc, deleteDoc, doc, query, updateDoc, setDoc, writeBatch, limit, where, documentId, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
 import { GoogleGenAI } from '@google/genai';
@@ -10,6 +10,7 @@ import AdminVideoManager from './AdminVideoManager';
 import logo from '../assets/scholar-main.png';
 import PartnershipLogos from './PartnershipLogos';
 import { DEFAULT_PREP_MODE, PREP_MODE_LABELS, PREP_MODES } from '../lib/prepModes';
+import { buildSectionsFromExamTemplate, getDefaultExamTemplateForPrepMode, getExamTemplate, getExamTemplatesForPrepMode } from '../lib/examTemplates';
 import { toast } from './ui/Toast';
 import { confirmDialog } from './ui/ConfirmDialog';
 import { DEFAULT_BRAINSTORM_WINDOWS, minutesToLabel, minutesToTimeInputValue, sanitizeBrainstormWindows, timeInputValueToMinutes } from '../brainstorm';
@@ -619,6 +620,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, initialTab = 'que
   const [testName, setTestName] = useState('');
   const [testDesc, setTestDesc] = useState('');
   const [testPrepMode, setTestPrepMode] = useState<PrepMode>(DEFAULT_PREP_MODE);
+  const [selectedExamTemplateId, setSelectedExamTemplateId] = useState<ExamTemplateId>(() => getDefaultExamTemplateForPrepMode(DEFAULT_PREP_MODE)?.id || 'custom');
   const [testDuration, setTestDuration] = useState(60);
   const [testGenerationMode, setTestGenerationMode] = useState<TestGenerationMode>('fixed');
   const [csvDynamicQuestions, setCsvDynamicQuestions] = useState<StagedQuestion[]>([]);
@@ -745,6 +747,27 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, initialTab = 'que
     if (adminPrepModeFilter === 'all') return managedTests;
     return managedTests.filter((test) => ((test.prepMode as PrepMode) || DEFAULT_PREP_MODE) === adminPrepModeFilter);
   }, [managedTests, adminPrepModeFilter]);
+
+  const availableExamTemplates = useMemo(() => getExamTemplatesForPrepMode(testPrepMode), [testPrepMode]);
+  const selectedExamTemplate = getExamTemplate(selectedExamTemplateId);
+
+  const updateTestPrepMode = (mode: PrepMode) => {
+    setTestPrepMode(mode);
+    const defaultTemplate = getDefaultExamTemplateForPrepMode(mode);
+    setSelectedExamTemplateId(defaultTemplate?.id || 'custom');
+  };
+
+  const applySelectedExamTemplate = () => {
+    if (!selectedExamTemplate) {
+      notify('Choose an exam template first.');
+      return;
+    }
+    setTestDuration(selectedExamTemplate.durationMinutes);
+    setTestGenerationMode('dynamic');
+    setSections(buildSectionsFromExamTemplate(selectedExamTemplate));
+    setActiveBuilderSection(0);
+    notify(`${selectedExamTemplate.name} applied. Review subject filters before publishing.`);
+  };
 
   const csvBundlePreview = useMemo(() => {
     if (!csvBundleEnabled || csvDynamicQuestions.length === 0) return [];
@@ -1713,6 +1736,10 @@ Rules:
         name: testName,
         description: testDesc,
         prepMode: testPrepMode,
+        examTemplateId: selectedExamTemplate?.id || '',
+        examTemplateName: selectedExamTemplate?.name || '',
+        examStructureSource: selectedExamTemplate?.structureSource || 'admin-configured',
+        officialStructureNote: selectedExamTemplate?.officialStructureNote || '',
         totalDurationSeconds: testDuration * 60,
         sections: sectionsToPersist,
         generationMode: testGenerationMode,
@@ -2749,7 +2776,7 @@ Rules:
                   Prep Mode
                   <select
                     value={testPrepMode}
-                    onChange={(e) => setTestPrepMode(e.target.value as PrepMode)}
+                    onChange={(e) => updateTestPrepMode(e.target.value as PrepMode)}
                     className="mt-2 w-full p-4 bg-slate-50 border rounded-2xl text-xs font-bold text-slate-700 outline-none"
                   >
                     {PREP_MODES.map((mode) => (
@@ -2757,6 +2784,41 @@ Rules:
                     ))}
                   </select>
                 </label>
+                <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 space-y-3">
+                  <label className="block text-xs font-bold uppercase tracking-widest text-slate-400">
+                    Exam Template
+                    <select
+                      value={selectedExamTemplateId}
+                      onChange={(e) => setSelectedExamTemplateId(e.target.value as ExamTemplateId)}
+                      className="mt-2 w-full p-4 bg-white border border-slate-100 rounded-2xl text-xs font-bold text-slate-700 outline-none"
+                    >
+                      {availableExamTemplates.map((template) => (
+                        <option key={template.id} value={template.id}>{template.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                  {selectedExamTemplate && (
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="px-3 py-1 rounded-lg bg-amber-100 text-amber-700 text-[10px] font-black uppercase tracking-widest">
+                          {selectedExamTemplate.structureSource.replace('-', ' ')}
+                        </span>
+                        <span className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
+                          {selectedExamTemplate.durationMinutes} mins - {selectedExamTemplate.sections.reduce((sum, section) => sum + section.questionCount, 0)} questions
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 leading-relaxed">{selectedExamTemplate.description}</p>
+                      <p className="text-[11px] text-slate-400 leading-relaxed">{selectedExamTemplate.officialStructureNote}</p>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={applySelectedExamTemplate}
+                    className="w-full py-3 bg-slate-950 text-amber-500 rounded-xl text-xs font-black uppercase tracking-widest"
+                  >
+                    Apply Template
+                  </button>
+                </div>
                 <textarea placeholder="Instructions shown to students" className="w-full p-4 bg-slate-50 border rounded-2xl text-xs h-20" value={testDesc} onChange={e => setTestDesc(e.target.value)} />
                 <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl">
                    <span className="text-xs font-bold uppercase text-slate-400">Time (mins)</span>
@@ -3194,7 +3256,7 @@ Rules:
                           <div>
                             <h4 className="text-base font-bold text-slate-900 uppercase">{test.name}</h4>
                             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
-                              {PREP_MODE_LABELS[(test.prepMode as PrepMode) || DEFAULT_PREP_MODE]} - {Math.round((test.totalDurationSeconds || 0) / 60)} mins - {test.sections?.length || 0} section(s) - {(test.generationMode || 'fixed')} mode
+                              {PREP_MODE_LABELS[(test.prepMode as PrepMode) || DEFAULT_PREP_MODE]} - {Math.round((test.totalDurationSeconds || 0) / 60)} mins - {test.sections?.length || 0} section(s) - {(test.generationMode || 'fixed')} mode{test.examTemplateName ? ` - ${test.examTemplateName}` : ''}
                             </p>
                           </div>
                           <div className="flex flex-wrap gap-2">

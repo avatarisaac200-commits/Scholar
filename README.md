@@ -19,6 +19,24 @@ View your app in AI Studio: https://ai.studio/apps/drive/1bRJHLbhbTyGMwXcWLjdUYB
 3. Run the app:
    `npm run dev`
 
+## Scholar Firebase Setup
+
+Scholar is configured through Vite environment variables so it can use its own Firebase project instead of the original OAU app project.
+
+Copy `.env.example` to `.env.local` and fill in the Firebase Web App config from Firebase Console:
+
+```txt
+VITE_FIREBASE_API_KEY=
+VITE_FIREBASE_AUTH_DOMAIN=
+VITE_FIREBASE_PROJECT_ID=
+VITE_FIREBASE_STORAGE_BUCKET=
+VITE_FIREBASE_MESSAGING_SENDER_ID=
+VITE_FIREBASE_APP_ID=
+VITE_FIREBASE_MEASUREMENT_ID=
+```
+
+Set the same variables in Vercel for `https://scholar-cbt.vercel.app`, then redeploy. If your Firebase project ID is not `scholar`, update `.firebaserc` to the exact project ID before deploying rules.
+
 ## Firebase Leaderboard Automation
 
 This project now includes a Cloud Function that keeps `leaderboardPublic` in sync whenever `results` changes.

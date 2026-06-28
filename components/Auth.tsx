@@ -1,12 +1,11 @@
 ﻿
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { User } from '../types';
 import { auth, authPersistenceReady, db } from '../firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
 import { doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
 import logo from '../assets/scholar-main.png';
 import PartnershipLogos from './PartnershipLogos';
-import { DEFAULT_PREP_MODE } from '../lib/prepModes';
 import { toast } from './ui/Toast';
 
 interface AuthProps {
@@ -24,26 +23,54 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
   const [showPassword, setShowPassword] = useState(false);
 
   const ensureUserProfile = async (firebaseUser: any) => {
-    const userRef = doc(db, 'users', firebaseUser.uid);
-    const userSnap = await getDoc(userRef);
-    if (userSnap.exists()) return;
+    try {
+      const userRef = doc(db, 'users', firebaseUser.uid);
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists()) return;
 
-    const userEmail = firebaseUser.email || '';
-    const isOfficialEmail = userEmail.toLowerCase().endsWith('@aureusmedicos.com');
-    const assignedRole = userEmail.toLowerCase() === 'admin@aureusmedicos.com' ? 'admin' : 'student';
-    const newUser: User = {
-      id: firebaseUser.uid,
-      name: firebaseUser.displayName || userEmail.split('@')[0] || 'Scholar User',
-      email: userEmail,
-      role: assignedRole,
-      emailVerified: Boolean(firebaseUser.emailVerified || isOfficialEmail),
-      lastPrepMode: DEFAULT_PREP_MODE,
-      licenses: {},
-      subscriptionStatus: 'inactive'
+      const userEmail = firebaseUser.email || '';
+      const isOfficialEmail = userEmail.toLowerCase().endsWith('@aureusmedicos.com');
+      const assignedRole = userEmail.toLowerCase() === 'admin@aureusmedicos.com' ? 'admin' : 'student';
+      const newUser: User = {
+        id: firebaseUser.uid,
+        name: firebaseUser.displayName || userEmail.split('@')[0] || 'Scholar User',
+        email: userEmail,
+        role: assignedRole,
+        emailVerified: Boolean(firebaseUser.emailVerified || isOfficialEmail),
+        licenses: {},
+        subscriptionStatus: 'inactive'
+      };
+
+      await setDoc(userRef, newUser);
+    } catch (error) {
+      console.error('Google profile sync error:', error);
+      toast.warning('Profile sync delayed', 'You are signed in. Your profile will be checked again after loading.');
+    }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const completeGoogleRedirect = async () => {
+      try {
+        await authPersistenceReady;
+        const result = await getRedirectResult(auth);
+        if (!result?.user || cancelled) return;
+        await ensureUserProfile(result.user);
+        if (!cancelled) onLogin(result.user);
+      } catch (error: any) {
+        if (!cancelled) {
+          toast.error('Google sign-in failed', error?.message || 'Could not complete Google sign-in.');
+        }
+      }
     };
 
-    await setDoc(userRef, newUser);
-  };
+    void completeGoogleRedirect();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [onLogin]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,7 +94,6 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
           email: trimmedEmail, 
           role: assignedRole,
           emailVerified: isOfficialEmail,
-          lastPrepMode: DEFAULT_PREP_MODE,
           licenses: {},
           subscriptionStatus: 'inactive'
         };
@@ -122,6 +148,14 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
       await ensureUserProfile(userCredential.user);
       onLogin(userCredential.user);
     } catch (error: any) {
+      if (error?.code === 'auth/popup-blocked' || error?.code === 'auth/popup-closed-by-user') {
+        const provider = new GoogleAuthProvider();
+        provider.addScope('email');
+        provider.addScope('profile');
+        provider.setCustomParameters({ prompt: 'select_account' });
+        await signInWithRedirect(auth, provider);
+        return;
+      }
       toast.error('Google sign-in failed', error?.message || 'Could not sign in with Google.');
     } finally {
       setIsGoogleLoading(false);

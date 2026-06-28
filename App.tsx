@@ -29,6 +29,56 @@ const CoursesHub = lazy(() => import('./components/CoursesHub'));
 const VideoLearningHub = lazy(() => import('./components/VideoLearningHub'));
 const SocialProfileOnboarding = lazy(() => import('./components/SocialProfileOnboarding'));
 
+interface AppErrorBoundaryState {
+  error: Error | null;
+}
+
+class AppErrorBoundary extends React.Component<{ children: React.ReactNode }, AppErrorBoundaryState> {
+  state: AppErrorBoundaryState = { error: null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error('Scholar render error:', error, info);
+  }
+
+  render() {
+    if (!this.state.error) return this.props.children;
+
+    return (
+      <div className="min-h-[100dvh] bg-slate-950 px-6 py-10 text-white flex items-center justify-center">
+        <div className="w-full max-w-md rounded-3xl border border-white/10 bg-white/5 p-6 text-center shadow-2xl">
+          <img src={logo} className="mx-auto mb-5 h-16 w-16" alt="Scholar! logo" />
+          <p className="mb-2 text-xs font-black uppercase tracking-[0.35em] text-amber-500">Scholar!</p>
+          <h1 className="text-2xl font-black uppercase tracking-tight">Screen failed to load</h1>
+          <p className="mt-3 text-sm leading-relaxed text-slate-300">
+            Reload the app. If it happens again, sign out and sign back in.
+          </p>
+          <pre className="mt-4 max-h-32 overflow-auto rounded-2xl bg-slate-950/70 p-3 text-left text-[11px] leading-relaxed text-amber-100 whitespace-pre-wrap">
+            {this.state.error.message || String(this.state.error)}
+          </pre>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="mt-6 w-full rounded-2xl bg-amber-500 px-5 py-4 text-xs font-black uppercase tracking-widest text-slate-950"
+          >
+            Reload App
+          </button>
+          <button
+            type="button"
+            onClick={() => auth.signOut().finally(() => window.location.assign('/'))}
+            className="mt-3 w-full rounded-2xl border border-white/10 px-5 py-4 text-xs font-black uppercase tracking-widest text-slate-200"
+          >
+            Sign Out
+          </button>
+        </div>
+      </div>
+    );
+  }
+}
+
 const DEFAULT_FREE_ACCESS_ENDS_AT_ISO = '2026-04-01T23:00:00.000Z'; // April 2, 2026 00:00 WAT
 const DEADLINE_CONFIG_DOC_ID = 'deadline_config';
 const LICENSE_PROMPT_SNOOZE_HOURS = 24;
@@ -356,7 +406,33 @@ const App: React.FC = () => {
   const getPostAuthViewForUser = (user: User): ViewState => {
     if (user.role === 'root-admin') return 'root-admin';
     if (user.role === 'admin') return 'admin';
-    return user.lastPrepMode ? 'dashboard' : 'prep-selector';
+    return user.lastPrepMode && (user as any).prepModeSelectedAt ? 'dashboard' : 'prep-selector';
+  };
+
+  const createFallbackUserFromFirebase = (firebaseUser: any): User => {
+    const userEmail = firebaseUser.email || '';
+    const isOfficialEmail = userEmail.toLowerCase().endsWith('@aureusmedicos.com');
+    return {
+      id: firebaseUser.uid,
+      name: firebaseUser.displayName || userEmail.split('@')[0] || 'Scholar User',
+      email: userEmail,
+      role: 'student',
+      emailVerified: Boolean(firebaseUser.emailVerified || isOfficialEmail),
+      licenses: {},
+      subscriptionStatus: 'inactive'
+    };
+  };
+
+  const getAllowedPostAuthView = (user: User): ViewState => {
+    const requestedView = typeof window !== 'undefined' ? pathToView(window.location.pathname) : null;
+    if (requestedView === 'attendance') return 'attendance';
+    if (requestedView === 'blacklist') return 'blacklist';
+    if (requestedView === 'courses') return 'courses';
+    if (requestedView === 'videos') return 'videos';
+    if (requestedView === 'update-manual') return 'update-manual';
+    if (requestedView === 'admin' && (user.role === 'admin' || user.role === 'root-admin')) return 'admin';
+    if (requestedView === 'root-admin' && user.role === 'root-admin') return 'root-admin';
+    return getPostAuthViewForUser(user);
   };
 
   const getBroadcastSeenStorageKey = (userId: string) => `${BROADCAST_NOTIFICATIONS_SEEN_AT_PREFIX}:${userId}`;
@@ -1121,7 +1197,8 @@ const App: React.FC = () => {
       const userDoc = await withTimeout(getDoc(doc(db, 'users', updatedUser.uid)), 12000, 'User profile load');
       if (userDoc.exists()) {
         const userData = userDoc.data() as User;
-        const userPrepMode = normalizePrepMode(userData.lastPrepMode);
+        const hasExplicitPrepSelection = Boolean((userData as any).prepModeSelectedAt);
+        const userPrepMode = hasExplicitPrepSelection ? normalizePrepMode(userData.lastPrepMode) : DEFAULT_PREP_MODE;
         setSelectedPrepMode(userPrepMode);
         const isOfficialEmail = updatedUser.email?.toLowerCase().endsWith('@aureusmedicos.com');
         const isManuallyVerified = userData.emailVerified === true;
@@ -1141,7 +1218,12 @@ const App: React.FC = () => {
           return;
         }
 
-        const userObj = { ...userData, id: updatedUser.uid, emailVerified: isVerifiedForAccess, lastPrepMode: userPrepMode };
+        const userObj = {
+          ...userData,
+          id: updatedUser.uid,
+          emailVerified: isVerifiedForAccess,
+          lastPrepMode: hasExplicitPrepSelection ? userPrepMode : undefined
+        };
         setCurrentUser(userObj);
 
         const linkedTestId = getLinkedTestId();
@@ -1157,39 +1239,31 @@ const App: React.FC = () => {
             setCurrentView(getPostAuthViewForUser(userObj));
           }
         } else {
-          const requestedView = typeof window !== 'undefined' ? pathToView(window.location.pathname) : null;
-          if (requestedView === 'attendance') {
-            setCurrentView('attendance');
-          } else if (requestedView === 'blacklist') {
-            setCurrentView('blacklist');
-          } else if (requestedView === 'courses') {
-            setCurrentView('courses');
-          } else if (requestedView === 'update-manual') {
-            setCurrentView('update-manual');
-          } else if (requestedView === 'admin' && (userData.role === 'admin' || userData.role === 'root-admin')) {
-            setCurrentView('admin');
-          } else if (requestedView === 'root-admin' && userData.role === 'root-admin') {
-            setCurrentView('root-admin');
-          } else if (requestedView === 'verify-email') {
-            // If account is already verified, never route back to verify-email.
-            setCurrentView(getPostAuthViewForUser(userObj));
-          } else {
-            setCurrentView(getPostAuthViewForUser(userObj));
-          }
+          setCurrentView(getAllowedPostAuthView(userObj));
         }
       } else {
-        setCurrentUser(null);
-        const requestedView = typeof window !== 'undefined' ? pathToView(window.location.pathname) : null;
-        setCurrentView(
-          requestedView === 'blacklist'
-            ? 'blacklist'
-            : requestedView === 'attendance'
-              ? 'attendance'
-              : 'auth'
-        );
+        const newUser = createFallbackUserFromFirebase(updatedUser);
+        try {
+          await setDoc(doc(db, 'users', updatedUser.uid), newUser);
+        } catch (profileError) {
+          console.error('Profile creation error:', profileError);
+          toast.warning('Profile sync delayed', 'You are signed in. Some account details may finish syncing after reload.');
+        }
+        setSelectedPrepMode(DEFAULT_PREP_MODE);
+        setCurrentUser(newUser);
+        setCurrentView(newUser.emailVerified ? getAllowedPostAuthView(newUser) : 'verify-email');
       }
     } catch (error) {
       console.error("Account check error:", error);
+      const signedInUser = auth.currentUser || firebaseUser;
+      if (signedInUser) {
+        const fallbackUser = createFallbackUserFromFirebase(signedInUser);
+        setSelectedPrepMode(DEFAULT_PREP_MODE);
+        setCurrentUser(fallbackUser);
+        setCurrentView(fallbackUser.emailVerified ? getAllowedPostAuthView(fallbackUser) : 'verify-email');
+        toast.warning('Profile sync delayed', 'You are signed in. Reload if your dashboard data does not appear.');
+        return;
+      }
       const requestedView = typeof window !== 'undefined' ? pathToView(window.location.pathname) : null;
       setCurrentView(
         requestedView === 'blacklist'
@@ -1441,13 +1515,14 @@ const App: React.FC = () => {
 
   const handleSelectPrepMode = async (mode: PrepMode) => {
     const normalizedMode = normalizePrepMode(mode);
+    const selectedAt = new Date().toISOString();
     setSelectedPrepMode(normalizedMode);
-    setCurrentUser((prev) => prev ? { ...prev, lastPrepMode: normalizedMode } : prev);
+    setCurrentUser((prev) => prev ? { ...prev, lastPrepMode: normalizedMode, prepModeSelectedAt: selectedAt } as any : prev);
     setCurrentView('dashboard');
 
     if (!currentUser?.id) return;
     try {
-      await updateDoc(doc(db, 'users', currentUser.id), { lastPrepMode: normalizedMode });
+      await updateDoc(doc(db, 'users', currentUser.id), { lastPrepMode: normalizedMode, prepModeSelectedAt: selectedAt });
     } catch (err) {
       console.error('Prep mode save error:', err);
       toast.warning('Prep mode not saved', 'You can continue, but this choice may not be remembered next time.');
@@ -1466,10 +1541,11 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (!currentUser) return;
+    const prepFeatures = PREP_MODE_FEATURES[selectedPrepMode] || PREP_MODE_FEATURES[DEFAULT_PREP_MODE];
     const blocked =
-      (currentView === 'courses' && !PREP_MODE_FEATURES[selectedPrepMode].courses)
-      || (currentView === 'videos' && !PREP_MODE_FEATURES[selectedPrepMode].videos)
-      || (currentView === 'attendance' && !PREP_MODE_FEATURES[selectedPrepMode].attendance);
+      (currentView === 'courses' && !prepFeatures.courses)
+      || (currentView === 'videos' && !prepFeatures.videos)
+      || (currentView === 'attendance' && !prepFeatures.attendance);
     if (!blocked) return;
     toast.info('OAU Prep only', 'Courses, forums, chats, and learning extras are available in OAU Prep.');
     setCurrentView('dashboard');
@@ -1617,9 +1693,10 @@ const App: React.FC = () => {
     setCurrentView(lastMainView === 'update-manual' ? fallback : lastMainView);
   };
 
+  const selectedPrepFeatures = PREP_MODE_FEATURES[selectedPrepMode] || PREP_MODE_FEATURES[DEFAULT_PREP_MODE];
   const needsSocialOnboarding = Boolean(
     currentUser &&
-    PREP_MODE_FEATURES[selectedPrepMode].community &&
+    selectedPrepFeatures.community &&
     isSocialProfileReady &&
     (!currentUser.socialOnboardingCompletedAt || !communityProfile?.onboardingCompletedAt)
   );
@@ -1689,6 +1766,7 @@ const App: React.FC = () => {
   }
 
   return (
+    <AppErrorBoundary>
     <div
       className={`v2-app theme-${theme} ui-mode-${uiMode} min-h-[100svh] w-full overflow-x-hidden flex flex-col`}
       style={{ minHeight: 'calc(var(--app-vh, 1vh) * 100)', height: 'calc(var(--app-vh, 1vh) * 100)' }}
@@ -1893,6 +1971,7 @@ const App: React.FC = () => {
       )}
       </Suspense>
     </div>
+    </AppErrorBoundary>
   );
 };
 

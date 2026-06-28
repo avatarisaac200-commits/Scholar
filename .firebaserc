@@ -1,6 +1,7 @@
 {
   "projects": {
-    "staging": "aureus-medicos-cbt"
+    "default": "scholar-cbt",
+    "staging": "scholar-cbt"
   },
   "targets": {},
   "etags": {}
