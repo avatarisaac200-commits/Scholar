@@ -3,7 +3,6 @@ import { User, MockTest, ExamResult, QuizQuestion, SharedQuiz, CsvQuestionBundle
 import { db } from '../firebase';
 import { collection, query, where, onSnapshot, getDocs, getDocsFromServer, limit, addDoc, updateDoc, deleteDoc, doc, orderBy, setDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
 import logo from '../assets/scholar-main.png';
-import PartnershipLogos from './PartnershipLogos';
 import { DEFAULT_PREP_MODE, PREP_MODE_FEATURES, PREP_MODE_LABELS, getTestPrepMode, hasActivePrepLicense } from '../lib/prepModes';
 import { AppTheme, THEMES } from '../theme';
 import { toast } from './ui/Toast';
@@ -1238,46 +1237,22 @@ const Dashboard: React.FC<DashboardProps> = ({
 
       <div className="flex-1 v2-scroll p-4 md:p-12 pb-[110px] md:pb-24 safe-bottom">
         <div className="max-w-6xl mx-auto">
-          <div className="v3-hero-strip flex flex-col lg:flex-row justify-between items-center mb-6 gap-4 bg-white p-5 md:p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
-            <div className="flex items-center gap-6">
-              <img src={logo} alt="Scholar! logo" className="w-16 h-16" />
-              <div>
-                <h1 className="text-2xl font-bold text-slate-950 uppercase tracking-tight leading-none">Student Dashboard</h1>
-                <p className="text-amber-600 text-xs font-black uppercase mt-1">{PREP_MODE_LABELS[prepMode]}</p>
-                <PartnershipLogos className="mt-2 items-start" size="compact" />
-              </div>
+          <div className="mb-6 border-b border-slate-200 pb-5 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+            <div>
+              <p className="text-xs font-black uppercase tracking-widest text-amber-600">{PREP_MODE_LABELS[prepMode]}</p>
+              <h1 className="mt-1 text-2xl md:text-3xl font-black text-slate-950 tracking-tight">Dashboard</h1>
             </div>
-            <button
-              onClick={onSwitchPrepMode}
-              className="px-6 py-3 text-xs font-black text-slate-700 bg-slate-50 border border-slate-200 rounded-2xl hover:bg-slate-100 uppercase tracking-widest shadow-sm"
-            >
-              Switch Prep
-            </button>
-            {(user.role === 'admin' || user.role === 'root-admin') && onReturnToAdmin && (
-              <button onClick={onReturnToAdmin} className="px-10 py-4 text-xs font-black text-amber-600 bg-amber-50 border border-amber-100 rounded-2xl hover:bg-amber-100 uppercase tracking-widest shadow-sm">Staff Settings</button>
-            )}
-            <button
-              onClick={() => setActiveTab('reviews')}
-              className="px-6 py-3 text-xs font-black text-sky-700 bg-sky-50 border border-sky-100 rounded-2xl hover:bg-sky-100 uppercase tracking-widest shadow-sm"
-            >
-              Open Reviews
-            </button>
-            {onOpenCourses && prepFeatures.courses && (
+            <div className="flex flex-wrap gap-2">
               <button
-                onClick={onOpenCourses}
-                className="px-6 py-3 text-xs font-black text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-2xl hover:bg-emerald-100 uppercase tracking-widest shadow-sm"
+                onClick={onSwitchPrepMode}
+                className="px-4 py-2 text-xs font-black text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 uppercase tracking-widest"
               >
-                Open Courses
+                Switch Prep
               </button>
-            )}
-            {onOpenVideos && prepFeatures.videos && (
-              <button
-                onClick={onOpenVideos}
-                className="px-6 py-3 text-xs font-black text-violet-700 bg-violet-50 border border-violet-100 rounded-2xl hover:bg-violet-100 uppercase tracking-widest shadow-sm"
-              >
-                Watch Videos
-              </button>
-            )}
+              {(user.role === 'admin' || user.role === 'root-admin') && onReturnToAdmin && (
+                <button onClick={onReturnToAdmin} className="px-4 py-2 text-xs font-black text-amber-700 bg-amber-50 border border-amber-100 rounded-xl hover:bg-amber-100 uppercase tracking-widest">Staff</button>
+              )}
+            </div>
           </div>
 
           <div className="mb-8 bg-white rounded-2xl border border-slate-100 p-2 hidden md:inline-flex gap-2">
@@ -1294,14 +1269,14 @@ const Dashboard: React.FC<DashboardProps> = ({
 
           {activeTab === 'home' && (
             <div className="space-y-6">
-              <div className="v3-layout-split grid grid-cols-1 xl:grid-cols-3 gap-10">
-              <div className="xl:col-span-2 space-y-10">
+              <div className="space-y-10">
+              <div className="space-y-10">
                 <section>
                   <div className="flex items-center justify-between mb-8">
                     <h2 className="text-xl font-bold text-slate-950 uppercase">Active Tests</h2>
                     <p className="text-xs font-black uppercase tracking-widest text-slate-400">{viewableTests.length} visible</p>
                   </div>
-                  <div className="v3-test-grid grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="v3-test-grid grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                     {viewableTests.map(test => (
                       (() => {
                         const attempts = history.filter(h => h.testId === test.id).length;
@@ -1312,12 +1287,12 @@ const Dashboard: React.FC<DashboardProps> = ({
                         const bundles = getTestBundles(test);
                         const hasBundles = isBundledCsvDynamicTest(test);
                         return (
-                      <div key={test.id} className={`bg-white p-[18px] sm:p-8 rounded-[2.5rem] shadow-sm border transition-all flex flex-col h-full group min-w-0 ${isReadOnly ? 'border-slate-100 opacity-60' : 'border-slate-100 hover:border-amber-400'}`}>
+                      <div key={test.id} className={`bg-white p-5 rounded-2xl shadow-sm border transition-all flex flex-col h-full group min-w-0 ${isReadOnly ? 'border-slate-100 opacity-60' : 'border-slate-100 hover:border-amber-400'}`}>
                         <div className="flex justify-between items-start mb-4 min-w-0">
                           <h3 className="font-bold text-xl text-slate-950 uppercase truncate leading-tight mr-2 min-w-0">{test.name}</h3>
                           <span className="bg-slate-50 text-slate-500 text-xs font-black px-3 py-1.5 rounded-lg uppercase whitespace-nowrap">{test.totalDurationSeconds / 60}m</span>
                         </div>
-                        <p className="text-xs text-slate-400 mb-6 font-medium italic line-clamp-3 leading-relaxed">{test.description || 'Start this test.'}</p>
+                        <p className="text-xs text-slate-500 mb-5 font-medium line-clamp-2 leading-relaxed">{test.description || 'Start this test.'}</p>
                         {test.examTemplateName && (
                           <div className="mb-4 p-3 rounded-xl bg-amber-50 border border-amber-100">
                             <p className="text-[11px] font-black uppercase tracking-widest text-amber-700">{test.examTemplateName}</p>
@@ -1326,9 +1301,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                             )}
                           </div>
                         )}
-                        <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">
-                          Taken by {testCounts[test.id] ?? 0} people
-                        </div>
+                        <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-5">{testCounts[test.id] ?? 0} attempts</div>
                         <div className="flex flex-wrap gap-2 mb-4">
                           {test.accessPassword && (
                             <span className="px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest bg-indigo-50 text-indigo-700 border border-indigo-100">
@@ -1389,34 +1362,31 @@ const Dashboard: React.FC<DashboardProps> = ({
                             )}
                           </div>
                         )}
-                        <div className="mt-auto flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2 min-w-0">
-                          <div className="flex flex-wrap items-center gap-2 min-w-0">
-                            <button disabled={isReadOnly || lowDataMode} onClick={() => setShowLeaderboard(test)} className="v3-card-action disabled:opacity-40 text-xs font-bold text-amber-600 uppercase tracking-widest hover:underline flex items-center gap-1">
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>Leaderboard
-                            </button>
-                            <button disabled={isReadOnly} onClick={() => copyTestLink(test)} className="v3-card-action disabled:opacity-40 px-3 py-2 bg-emerald-50 rounded-xl text-xs font-bold uppercase tracking-widest text-emerald-700 hover:bg-emerald-100">
-                              Copy Link
-                            </button>
-                            <button disabled={isReadOnly} onClick={() => onSaveOfflineTest && onSaveOfflineTest(test)} className="v3-card-action disabled:opacity-40 px-3 py-2 bg-sky-50 rounded-xl text-xs font-bold uppercase tracking-widest text-sky-700 hover:bg-sky-100">
-                              Save Offline
-                            </button>
-                          </div>
+                        <div className="mt-auto flex flex-col gap-3 min-w-0">
                           {!hasBundles && (
-                            <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                            <div className="flex flex-col gap-2">
                               {attempts >= 1 && (
                                 <button
                                   onClick={() => onStartTest(test, { quizMode: true })}
                                   disabled={isReadOnly}
-                                  className="v3-card-action px-5 py-3 bg-slate-900 text-amber-500 rounded-xl font-bold uppercase tracking-widest text-xs shadow-lg active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap text-center"
+                                  className="v3-card-action px-5 py-3 bg-slate-900 text-amber-500 rounded-xl font-bold uppercase tracking-widest text-xs active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap text-center"
                                 >
                                   Quiz Mode
                                 </button>
                               )}
-                              <button onClick={() => onStartTest(test)} disabled={isBlocked} className="v3-card-action px-8 py-3 bg-amber-500 text-slate-950 rounded-xl font-bold uppercase tracking-widest text-xs shadow-lg active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap text-center">
+                              <button onClick={() => onStartTest(test)} disabled={isBlocked} className="v3-card-action px-8 py-3 bg-amber-500 text-slate-950 rounded-xl font-bold uppercase tracking-widest text-xs active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap text-center">
                               {isReadOnly ? 'Activate First' : isBlocked ? 'Not Available' : 'Start Test'}
                               </button>
                             </div>
                           )}
+                          <div className="flex gap-2">
+                            <button disabled={isReadOnly} onClick={() => copyTestLink(test)} className="v3-card-action disabled:opacity-40 flex-1 px-3 py-2 bg-slate-50 rounded-xl text-xs font-bold uppercase tracking-widest text-slate-600 hover:bg-slate-100">
+                              Link
+                            </button>
+                            <button disabled={isReadOnly || lowDataMode} onClick={() => setShowLeaderboard(test)} className="v3-card-action disabled:opacity-40 flex-1 px-3 py-2 bg-slate-50 rounded-xl text-xs font-bold uppercase tracking-widest text-slate-600 hover:bg-slate-100">
+                              Ranks
+                            </button>
+                          </div>
                         </div>
                       </div>
                         );
@@ -1433,39 +1403,6 @@ const Dashboard: React.FC<DashboardProps> = ({
                 </section>
               </div>
 
-              <aside className={`hidden xl:block bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-200 h-fit sticky top-12 transition-all ${isReadOnly ? 'opacity-60' : ''}`}>
-                <h2 className="text-lg font-bold mb-5 text-slate-950 uppercase text-center">Quick Actions</h2>
-                <div className="space-y-3">
-                  <button
-                    onClick={() => setActiveTab('reviews')}
-                    className="w-full py-4 bg-sky-50 border border-sky-100 text-sky-700 rounded-2xl text-xs font-black uppercase tracking-widest"
-                  >
-                    Go To Reviews
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('profile')}
-                    className="w-full py-4 bg-slate-50 border border-slate-200 text-slate-700 rounded-2xl text-xs font-black uppercase tracking-widest"
-                  >
-                    Edit Profile
-                  </button>
-                  {onOpenCourses && prepFeatures.courses && (
-                    <button
-                      onClick={onOpenCourses}
-                      className="w-full py-4 bg-emerald-50 border border-emerald-100 text-emerald-700 rounded-2xl text-xs font-black uppercase tracking-widest"
-                    >
-                      Open Courses
-                    </button>
-                  )}
-                  {onOpenVideos && prepFeatures.videos && (
-                    <button
-                      onClick={onOpenVideos}
-                      className="w-full py-4 bg-violet-50 border border-violet-100 text-violet-700 rounded-2xl text-xs font-black uppercase tracking-widest"
-                    >
-                      Watch Videos
-                    </button>
-                  )}
-                </div>
-              </aside>
             </div>
             </div>
           )}

@@ -184,22 +184,6 @@ If Firebase CLI is not installed, install it first:
 npm install -g firebase-tools
 ```
 
-## Vercel Environment Variables
-
-The local `.env.local` contains a placeholder:
-
-```txt
-VITE_GEMINI_API_KEY=PLACEHOLDER_API_KEY
-```
-
-In Vercel for `scholar-cbt.vercel.app`, add the real environment variable:
-
-```txt
-VITE_GEMINI_API_KEY=your_real_key
-```
-
-After adding/changing env vars, redeploy the Vercel project.
-
 ## GitHub / Vercel Notes
 
 GitHub repo name chosen:

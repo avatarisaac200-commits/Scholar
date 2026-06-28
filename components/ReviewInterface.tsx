@@ -5,7 +5,6 @@ import { db } from '../firebase';
 import { collection, getDocs, doc, getDoc, query, where, documentId, addDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
 import ScientificText from './ScientificText';
 import logo from '../assets/scholar-main.png';
-import { getOrCreateAiExplanation } from './aiExplanationService';
 import { toast } from './ui/Toast';
 
 interface ReviewInterfaceProps {
@@ -20,10 +19,6 @@ const ReviewInterface: React.FC<ReviewInterfaceProps> = ({ result, onExit }) => 
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showMoreInfo, setShowMoreInfo] = useState(false);
-  const [aiExplanation, setAiExplanation] = useState('');
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiError, setAiError] = useState('');
-  const [aiSource, setAiSource] = useState<'cache' | 'generated' | 'fallback' | ''>('');
   const [isTagDialogOpen, setIsTagDialogOpen] = useState(false);
   const [tagNote, setTagNote] = useState('');
   const [isSubmittingTag, setIsSubmittingTag] = useState(false);
@@ -220,34 +215,6 @@ const ReviewInterface: React.FC<ReviewInterfaceProps> = ({ result, onExit }) => 
       setCurrentQuestionIndex(0);
     }
   }, [reviewedSections, activeSectionIndex, currentQuestionIndex]);
-
-  useEffect(() => {
-    setAiExplanation('');
-    setAiError('');
-    setAiSource('');
-  }, [activeReviewedQuestionId]);
-
-  useEffect(() => {
-    if (!showMoreInfo || !activeReviewedQuestion) return;
-    let cancelled = false;
-    const run = async () => {
-      try {
-        setAiLoading(true);
-        setAiError('');
-        const result = await getOrCreateAiExplanation(activeReviewedQuestion);
-        if (!cancelled) {
-          setAiExplanation(result.text);
-          setAiSource(result.source);
-        }
-      } catch (err: any) {
-        if (!cancelled) setAiError(err?.message || 'Could not load AI explanation.');
-      } finally {
-        if (!cancelled) setAiLoading(false);
-      }
-    };
-    run();
-    return () => { cancelled = true; };
-  }, [showMoreInfo, activeReviewedQuestionId]);
 
   const submitQuestionTag = async (includeNote: boolean) => {
     if (!activeReviewedQuestion || !activeReviewedQuestionId || isSubmittingTag) return;
@@ -462,18 +429,13 @@ const ReviewInterface: React.FC<ReviewInterfaceProps> = ({ result, onExit }) => 
             )}
             {showMoreInfo && (
               <div className="mt-10 p-8 bg-sky-50 rounded-[2rem] border border-sky-100 text-slate-800">
-                <h4 className="text-[11px] font-black text-sky-700 uppercase tracking-[0.3em] mb-4">AI More Info</h4>
-                {aiLoading && <p className="text-xs font-bold uppercase tracking-widest text-sky-700">Loading explanation...</p>}
-                {!aiLoading && aiError && <p className="text-xs font-bold uppercase tracking-widest text-red-600">{aiError}</p>}
-                {!aiLoading && !aiError && aiSource === 'fallback' && (
-                  <p className="mb-3 text-xs font-bold uppercase tracking-widest text-amber-700 bg-amber-100 border border-amber-200 rounded-lg px-3 py-2">
-                    AI quota is unavailable. Showing stored local explanation.
-                  </p>
-                )}
-                {!aiLoading && !aiError && aiExplanation && (
+                <h4 className="text-[11px] font-black text-sky-700 uppercase tracking-[0.3em] mb-4">More Info</h4>
+                {activeReviewedQuestion?.explanation?.trim() ? (
                   <div className="text-sm leading-relaxed">
-                    <ScientificText text={aiExplanation} />
+                    <ScientificText text={activeReviewedQuestion.explanation} />
                   </div>
+                ) : (
+                  <p className="text-xs font-bold uppercase tracking-widest text-slate-500">No explanation has been added for this question.</p>
                 )}
               </div>
             )}
