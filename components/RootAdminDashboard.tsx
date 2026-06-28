@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { User } from '../types';
 import { db, firebaseConfig } from '../firebase';
 import { collection, getDocs, doc, deleteDoc, setDoc, updateDoc, query, where, limit, writeBatch } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
-import { createUserWithEmailAndPassword, getAuth, sendEmailVerification } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
+import { createUserWithEmailAndPassword, getAuth } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
 import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
 import logo from '../assets/scholar-main.png';
 import PartnershipLogos from './PartnershipLogos';
@@ -20,6 +20,7 @@ interface RootAdminDashboardProps {
 }
 
 const RootAdminDashboard: React.FC<RootAdminDashboardProps> = ({ user, onLogout, onSwitchToStudent, onSwitchToAdmin, onGoToImport, onGoToAnalytics }) => {
+  const STAFF_EMAIL_DOMAIN = '@scholarcbt.com';
   const [admins, setAdmins] = useState<User[]>([]);
   const [verificationQueue, setVerificationQueue] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
@@ -65,20 +66,24 @@ const RootAdminDashboard: React.FC<RootAdminDashboardProps> = ({ user, onLogout,
     e.preventDefault();
     setLoading(true);
     try {
+      const trimmedEmail = newEmail.trim().toLowerCase();
+      if (!trimmedEmail.endsWith(STAFF_EMAIL_DOMAIN)) {
+        toast.warning('Use staff email', `Admin accounts must use ${STAFF_EMAIL_DOMAIN}.`);
+        return;
+      }
       const secondaryApp = getApps().find(app => app.name === 'admin-create') || initializeApp(firebaseConfig, 'admin-create');
       const secondaryAuth = getAuth(secondaryApp);
-      const res = await createUserWithEmailAndPassword(secondaryAuth, newEmail, newPass);
+      const res = await createUserWithEmailAndPassword(secondaryAuth, trimmedEmail, newPass);
       await setDoc(doc(db, 'users', res.user.uid), { 
         id: res.user.uid, 
         name: newName, 
-        email: newEmail, 
+        email: trimmedEmail, 
         role: 'admin',
-        emailVerified: false
+        emailVerified: true
       });
-      await sendEmailVerification(res.user);
       setNewEmail(''); setNewPass(''); setNewName(''); 
       fetchAdmins();
-      toast.success('Administrator created', 'A verification email was sent.');
+      toast.success('Administrator created', `${trimmedEmail} can sign in now.`);
     } catch (err: any) { 
       toast.error('Create failed', err?.message || 'Could not create admin.'); 
     } finally { 

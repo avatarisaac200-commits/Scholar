@@ -95,6 +95,7 @@ const UPDATE_MANUAL_VERSION = '3.15.0';
 const UPDATE_MANUAL_SEEN_PREFIX = 'updateManualSeen';
 const BROADCAST_NOTIFICATIONS_SEEN_AT_PREFIX = 'broadcastSeenAt';
 const SOCIAL_PROFILE_PROMPT_DISMISSED_PREFIX = 'socialProfilePromptDismissed';
+const STAFF_EMAIL_DOMAIN = '@scholarcbt.com';
 
 type MonetizationMode = 'pre-deadline' | 'post-deadline';
 type OfflineTestPackage = {
@@ -409,15 +410,25 @@ const App: React.FC = () => {
     return user.lastPrepMode && (user as any).prepModeSelectedAt ? 'dashboard' : 'prep-selector';
   };
 
+  const isGoogleAuthUser = (firebaseUser: any) => {
+    return Array.isArray(firebaseUser?.providerData) && firebaseUser.providerData.some((provider: any) => provider?.providerId === 'google.com');
+  };
+
+  const isFirebaseUserVerifiedForAccess = (firebaseUser: any, userData?: Partial<User>) => {
+    const userEmail = firebaseUser?.email || userData?.email || '';
+    const isStaffEmail = userEmail.toLowerCase().endsWith(STAFF_EMAIL_DOMAIN);
+    const isManuallyVerified = userData?.emailVerified === true;
+    return Boolean(firebaseUser?.emailVerified || isGoogleAuthUser(firebaseUser) || isStaffEmail || isManuallyVerified);
+  };
+
   const createFallbackUserFromFirebase = (firebaseUser: any): User => {
     const userEmail = firebaseUser.email || '';
-    const isOfficialEmail = userEmail.toLowerCase().endsWith('@aureusmedicos.com');
     return {
       id: firebaseUser.uid,
       name: firebaseUser.displayName || userEmail.split('@')[0] || 'Scholar User',
       email: userEmail,
       role: 'student',
-      emailVerified: Boolean(firebaseUser.emailVerified || isOfficialEmail),
+      emailVerified: isFirebaseUserVerifiedForAccess(firebaseUser),
       licenses: {},
       subscriptionStatus: 'inactive'
     };
@@ -1186,6 +1197,7 @@ const App: React.FC = () => {
   };
 
   const checkUserStatus = async (firebaseUser: any) => {
+    setIsLoading(true);
     try {
       await withTimeout(firebaseUser.reload(), 12000, 'Auth refresh');
       const updatedUser = auth.currentUser;
@@ -1200,11 +1212,9 @@ const App: React.FC = () => {
         const hasExplicitPrepSelection = Boolean((userData as any).prepModeSelectedAt);
         const userPrepMode = hasExplicitPrepSelection ? normalizePrepMode(userData.lastPrepMode) : DEFAULT_PREP_MODE;
         setSelectedPrepMode(userPrepMode);
-        const isOfficialEmail = updatedUser.email?.toLowerCase().endsWith('@aureusmedicos.com');
-        const isManuallyVerified = userData.emailVerified === true;
-        const isVerifiedForAccess = updatedUser.emailVerified || isOfficialEmail || isManuallyVerified;
+        const isVerifiedForAccess = isFirebaseUserVerifiedForAccess(updatedUser, userData);
 
-        if (updatedUser.emailVerified && userData.emailVerified !== true) {
+        if (isVerifiedForAccess && userData.emailVerified !== true) {
           try {
             await updateDoc(doc(db, 'users', updatedUser.uid), { emailVerified: true });
           } catch {
@@ -1677,8 +1687,8 @@ const App: React.FC = () => {
     try {
       await withTimeout(auth.currentUser.reload(), 12000, 'Auth refresh');
       const refreshed = auth.currentUser;
-      const isOfficialEmail = refreshed?.email?.toLowerCase().endsWith('@aureusmedicos.com');
-      if (!refreshed?.emailVerified && !isOfficialEmail) {
+      const isStaffEmail = refreshed?.email?.toLowerCase().endsWith(STAFF_EMAIL_DOMAIN);
+      if (!refreshed?.emailVerified && !isStaffEmail) {
         setIsLoading(false);
         toast.warning('Not verified yet', 'Your email is still unverified. Open the verification link, then try again.');
         return;

@@ -1,8 +1,8 @@
 ﻿
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { User } from '../types';
 import { auth, authPersistenceReady, db } from '../firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup, signInWithRedirect } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
 import { doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
 import logo from '../assets/scholar-main.png';
 import PartnershipLogos from './PartnershipLogos';
@@ -13,6 +13,7 @@ interface AuthProps {
 }
 
 const Auth: React.FC<AuthProps> = ({ onLogin }) => {
+  const STAFF_EMAIL_DOMAIN = '@scholarcbt.com';
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -29,14 +30,12 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
       if (userSnap.exists()) return;
 
       const userEmail = firebaseUser.email || '';
-      const isOfficialEmail = userEmail.toLowerCase().endsWith('@aureusmedicos.com');
-      const assignedRole = userEmail.toLowerCase() === 'admin@aureusmedicos.com' ? 'admin' : 'student';
       const newUser: User = {
         id: firebaseUser.uid,
         name: firebaseUser.displayName || userEmail.split('@')[0] || 'Scholar User',
         email: userEmail,
-        role: assignedRole,
-        emailVerified: Boolean(firebaseUser.emailVerified || isOfficialEmail),
+        role: 'student',
+        emailVerified: true,
         licenses: {},
         subscriptionStatus: 'inactive'
       };
@@ -47,30 +46,6 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
       toast.warning('Profile sync delayed', 'You are signed in. Your profile will be checked again after loading.');
     }
   };
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const completeGoogleRedirect = async () => {
-      try {
-        await authPersistenceReady;
-        const result = await getRedirectResult(auth);
-        if (!result?.user || cancelled) return;
-        await ensureUserProfile(result.user);
-        if (!cancelled) onLogin(result.user);
-      } catch (error: any) {
-        if (!cancelled) {
-          toast.error('Google sign-in failed', error?.message || 'Could not complete Google sign-in.');
-        }
-      }
-    };
-
-    void completeGoogleRedirect();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [onLogin]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,23 +59,22 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
         const trimmedEmail = email.trim();
         const userCredential = await createUserWithEmailAndPassword(auth, trimmedEmail, password);
         
-        const isOfficialEmail = trimmedEmail.toLowerCase().endsWith('@aureusmedicos.com');
+        const isStaffEmail = trimmedEmail.toLowerCase().endsWith(STAFF_EMAIL_DOMAIN);
         
         // Save user profile immediately
-        const assignedRole = trimmedEmail.toLowerCase() === 'admin@aureusmedicos.com' ? 'admin' : 'student';
         const newUser: User = { 
           id: userCredential.user.uid, 
           name, 
           email: trimmedEmail, 
-          role: assignedRole,
-          emailVerified: isOfficialEmail,
+          role: 'student',
+          emailVerified: isStaffEmail,
           licenses: {},
           subscriptionStatus: 'inactive'
         };
         await setDoc(doc(db, 'users', userCredential.user.uid), newUser);
 
         // Verification logic
-        if (!isOfficialEmail) {
+        if (!isStaffEmail) {
           await sendEmailVerification(userCredential.user);
           toast.success('Account created', 'A verification link has been sent to your email.');
           setIsLogin(true);
