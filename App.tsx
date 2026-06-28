@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { User, MockTest, ExamResult, Question, TestSection, TestAttempt, DifficultyLevel, SharedQuiz, ViewState, BroadcastNotification, CustomThemeConfig, CommunityProfile, PrepMode } from './types';
 import { auth, authPersistenceReady, db } from './firebase';
-import { onAuthStateChanged, sendEmailVerification } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
+import { getRedirectResult, onAuthStateChanged, sendEmailVerification } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
 import { doc, getDoc, getDocFromServer, collection, getDocs, query, where, limit, documentId, updateDoc, addDoc, onSnapshot, setDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
 import logo from './assets/scholar-main.png';
 import { AppTheme } from './theme';
@@ -1281,7 +1281,16 @@ const App: React.FC = () => {
     let unsubscribe: (() => void) | null = null;
     let cancelled = false;
 
-    authPersistenceReady.finally(() => {
+    authPersistenceReady.finally(async () => {
+      if (cancelled) return;
+      try {
+        const redirectResult = await getRedirectResult(auth);
+        if (!cancelled && redirectResult?.user) {
+          await checkUserStatus(redirectResult.user);
+        }
+      } catch (error) {
+        console.error('Google redirect result error:', error);
+      }
       if (cancelled) return;
       unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {

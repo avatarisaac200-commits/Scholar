@@ -148,12 +148,15 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
       await ensureUserProfile(userCredential.user);
       onLogin(userCredential.user);
     } catch (error: any) {
-      if (error?.code === 'auth/popup-blocked' || error?.code === 'auth/popup-closed-by-user') {
+      if (error?.code === 'auth/popup-blocked') {
         const provider = new GoogleAuthProvider();
         provider.addScope('email');
         provider.addScope('profile');
         provider.setCustomParameters({ prompt: 'select_account' });
         await signInWithRedirect(auth, provider);
+        return;
+      }
+      if (error?.code === 'auth/popup-closed-by-user') {
         return;
       }
       toast.error('Google sign-in failed', error?.message || 'Could not sign in with Google.');
