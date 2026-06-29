@@ -1,0 +1,1248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scholar! — Nigeria's Premier CBT Exam Preparation Platform</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --navy:      #0A0F1E;
+    --navy-card: #111827;
+    --navy-mid:  #1C2340;
+    --navy-rim:  #232B4A;
+    --gold:      #F0A500;
+    --gold-lt:   #FFD166;
+    --gold-dim:  rgba(240,165,0,0.12);
+    --gold-glow: rgba(240,165,0,0.25);
+    --white:     #F8F9FC;
+    --off-white: #EEF0F6;
+    --steel:     #8892AA;
+    --steel-lt:  #B0BAD0;
+    --green-ok:  #22C55E;
+    --red-err:   #EF4444;
+    --blue-hi:   #3B82F6;
+    --radius-sm: 6px;
+    --radius-md: 12px;
+    --radius-lg: 20px;
+    --radius-xl: 28px;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--navy);
+    color: var(--white);
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 5vw;
+    height: 68px;
+    background: rgba(10,15,30,0.85);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(240,165,0,0.1);
+  }
+
+  .nav-logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800; font-size: 1.5rem;
+    color: var(--white);
+    text-decoration: none;
+    letter-spacing: -0.02em;
+  }
+  .nav-logo span { color: var(--gold); }
+
+  .nav-links {
+    display: flex; gap: 2rem; list-style: none;
+  }
+  .nav-links a {
+    color: var(--steel-lt); text-decoration: none;
+    font-size: 0.875rem; font-weight: 500;
+    transition: color .2s;
+  }
+  .nav-links a:hover { color: var(--white); }
+
+  .nav-cta {
+    display: flex; align-items: center; gap: 0.75rem;
+  }
+  .btn-ghost {
+    padding: 0.5rem 1.25rem;
+    border: 1px solid var(--navy-rim);
+    border-radius: var(--radius-sm);
+    background: transparent; color: var(--steel-lt);
+    font-size: 0.875rem; font-weight: 500;
+    cursor: pointer; text-decoration: none;
+    transition: border-color .2s, color .2s;
+  }
+  .btn-ghost:hover { border-color: var(--gold); color: var(--gold); }
+
+  .btn-gold {
+    padding: 0.55rem 1.4rem;
+    background: var(--gold); color: var(--navy);
+    border: none; border-radius: var(--radius-sm);
+    font-size: 0.875rem; font-weight: 700;
+    cursor: pointer; text-decoration: none;
+    transition: background .2s, box-shadow .2s;
+    font-family: 'Syne', sans-serif;
+    letter-spacing: 0.01em;
+  }
+  .btn-gold:hover { background: var(--gold-lt); box-shadow: 0 0 20px var(--gold-glow); }
+
+  /* ── HERO ── */
+  .hero {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: center;
+    gap: 4rem;
+    padding: 100px 5vw 80px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute; top: -200px; right: -100px;
+    width: 700px; height: 700px;
+    background: radial-gradient(circle, rgba(240,165,0,0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .hero::after {
+    content: '';
+    position: absolute; bottom: -100px; left: -200px;
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(59,130,246,0.05) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .hero-label {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    background: var(--gold-dim);
+    border: 1px solid rgba(240,165,0,0.3);
+    border-radius: 100px;
+    padding: 0.35rem 1rem;
+    font-size: 0.75rem; font-weight: 600;
+    color: var(--gold);
+    text-transform: uppercase; letter-spacing: 0.08em;
+    margin-bottom: 1.5rem;
+  }
+  .hero-label::before {
+    content: '';
+    width: 6px; height: 6px;
+    background: var(--gold);
+    border-radius: 50%;
+    animation: pulse 1.8s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.7); }
+  }
+
+  .hero h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(2.8rem, 5vw, 4.2rem);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+    margin-bottom: 1.25rem;
+  }
+  .hero h1 em {
+    font-style: normal;
+    color: var(--gold);
+    position: relative;
+  }
+
+  .hero-sub {
+    font-size: 1.1rem; color: var(--steel-lt);
+    max-width: 480px; line-height: 1.7;
+    margin-bottom: 2.25rem;
+  }
+
+  .hero-actions {
+    display: flex; gap: 1rem; flex-wrap: wrap;
+    margin-bottom: 3rem;
+  }
+  .btn-primary {
+    padding: 0.85rem 2rem;
+    background: var(--gold); color: var(--navy);
+    border: none; border-radius: var(--radius-sm);
+    font-size: 1rem; font-weight: 700;
+    cursor: pointer; text-decoration: none;
+    font-family: 'Syne', sans-serif;
+    transition: background .2s, box-shadow .2s, transform .15s;
+    display: inline-flex; align-items: center; gap: 0.5rem;
+  }
+  .btn-primary:hover { background: var(--gold-lt); box-shadow: 0 4px 30px var(--gold-glow); transform: translateY(-1px); }
+  .btn-secondary {
+    padding: 0.85rem 2rem;
+    background: transparent; color: var(--white);
+    border: 1px solid var(--navy-rim);
+    border-radius: var(--radius-sm);
+    font-size: 1rem; font-weight: 500;
+    cursor: pointer; text-decoration: none;
+    transition: border-color .2s, background .2s;
+    display: inline-flex; align-items: center; gap: 0.5rem;
+  }
+  .btn-secondary:hover { border-color: var(--steel); background: rgba(255,255,255,0.04); }
+
+  .hero-stats {
+    display: flex; gap: 2.5rem;
+  }
+  .hero-stat-val {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.8rem; font-weight: 800;
+    color: var(--white);
+    line-height: 1;
+  }
+  .hero-stat-val span { color: var(--gold); }
+  .hero-stat-lbl {
+    font-size: 0.78rem; color: var(--steel); margin-top: 0.2rem;
+    text-transform: uppercase; letter-spacing: 0.06em;
+  }
+
+  /* ── CBT MOCKUP (signature element) ── */
+  .hero-visual {
+    position: relative;
+    display: flex; flex-direction: column;
+    gap: 1rem;
+  }
+
+  .cbt-card {
+    background: var(--navy-card);
+    border: 1px solid var(--navy-rim);
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+    box-shadow: 0 32px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.03);
+    animation: floatCard 5s ease-in-out infinite;
+  }
+  @keyframes floatCard {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+
+  .cbt-topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1rem 1.25rem;
+    background: var(--navy-mid);
+    border-bottom: 1px solid var(--navy-rim);
+  }
+  .cbt-mode {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem; font-weight: 600;
+    color: var(--gold); text-transform: uppercase; letter-spacing: 0.1em;
+  }
+  .cbt-timer {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.1rem; font-weight: 600;
+    color: var(--white);
+    background: rgba(240,165,0,0.1);
+    border: 1px solid rgba(240,165,0,0.2);
+    padding: 0.2rem 0.75rem;
+    border-radius: var(--radius-sm);
+    min-width: 80px; text-align: center;
+    letter-spacing: 0.05em;
+  }
+  .cbt-qcount {
+    font-size: 0.78rem; color: var(--steel);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .cbt-progress-bar {
+    height: 3px;
+    background: var(--navy-rim);
+  }
+  .cbt-progress-fill {
+    height: 100%; width: 32%;
+    background: linear-gradient(90deg, var(--gold), var(--gold-lt));
+    border-radius: 2px;
+    transition: width 1s ease;
+  }
+
+  .cbt-body { padding: 1.5rem 1.25rem; }
+
+  .cbt-subject-tag {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    font-size: 0.7rem; font-weight: 600;
+    color: var(--blue-hi); background: rgba(59,130,246,0.1);
+    border: 1px solid rgba(59,130,246,0.2);
+    border-radius: 100px; padding: 0.2rem 0.65rem;
+    margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.07em;
+  }
+
+  .cbt-question {
+    font-size: 0.875rem; color: var(--white); line-height: 1.65;
+    margin-bottom: 1.25rem; font-weight: 400;
+  }
+  .cbt-question strong { color: var(--gold-lt); font-weight: 600; }
+
+  .cbt-options { display: flex; flex-direction: column; gap: 0.55rem; }
+  .cbt-option {
+    display: flex; align-items: center; gap: 0.75rem;
+    padding: 0.6rem 0.9rem;
+    border: 1px solid var(--navy-rim);
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem; cursor: pointer;
+    transition: all .15s;
+    color: var(--steel-lt);
+  }
+  .cbt-option:hover { border-color: var(--gold); background: var(--gold-dim); color: var(--white); }
+  .cbt-option.selected { border-color: var(--gold); background: var(--gold-dim); color: var(--white); }
+  .cbt-option.correct { border-color: var(--green-ok); background: rgba(34,197,94,0.08); color: var(--green-ok); }
+  .cbt-opt-letter {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem; font-weight: 600;
+    width: 22px; height: 22px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--navy-mid); border-radius: 4px;
+    flex-shrink: 0;
+    color: var(--steel);
+  }
+  .cbt-option.selected .cbt-opt-letter { background: var(--gold); color: var(--navy); }
+  .cbt-option.correct .cbt-opt-letter { background: var(--green-ok); color: #fff; }
+
+  .cbt-nav-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 1rem 1.25rem;
+    border-top: 1px solid var(--navy-rim);
+  }
+  .cbt-nav-btn {
+    font-size: 0.78rem; font-weight: 600;
+    padding: 0.45rem 1rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--navy-rim);
+    background: transparent; color: var(--steel-lt);
+    cursor: pointer;
+    font-family: 'Syne', sans-serif;
+    transition: all .15s;
+  }
+  .cbt-nav-btn:hover { border-color: var(--steel); color: var(--white); }
+  .cbt-nav-btn.next { background: var(--gold); border-color: var(--gold); color: var(--navy); }
+  .cbt-nav-btn.next:hover { background: var(--gold-lt); }
+  .cbt-grid-mini {
+    display: grid; grid-template-columns: repeat(10, 1fr); gap: 3px;
+  }
+  .cbt-grid-cell {
+    aspect-ratio: 1; border-radius: 2px;
+    background: var(--navy-rim); font-size: 0; /* hide text */
+  }
+  .cbt-grid-cell.answered { background: var(--gold); }
+  .cbt-grid-cell.current { background: var(--blue-hi); }
+  .cbt-grid-cell.flagged { background: #A855F7; }
+
+  /* floating score badge */
+  .score-badge {
+    position: absolute; top: -1rem; right: -1rem;
+    background: var(--navy-card);
+    border: 1px solid var(--navy-rim);
+    border-radius: var(--radius-lg);
+    padding: 1rem 1.25rem;
+    box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+    animation: floatBadge 4s ease-in-out 1s infinite;
+    min-width: 160px;
+  }
+  @keyframes floatBadge {
+    0%, 100% { transform: translateY(0) rotate(1deg); }
+    50% { transform: translateY(-6px) rotate(1deg); }
+  }
+  .badge-label { font-size: 0.68rem; color: var(--steel); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.35rem; }
+  .badge-score {
+    font-family: 'Syne', sans-serif; font-size: 2rem; font-weight: 800;
+    color: var(--white); line-height: 1;
+  }
+  .badge-score span { color: var(--gold); font-size: 1rem; }
+  .badge-sub { font-size: 0.72rem; color: var(--steel-lt); margin-top: 0.2rem; }
+  .badge-bar { height: 4px; background: var(--navy-rim); border-radius: 2px; margin-top: 0.75rem; }
+  .badge-bar-fill { height: 100%; width: 72%; background: linear-gradient(90deg, var(--green-ok), #86EFAC); border-radius: 2px; }
+
+  /* subject pills row */
+  .subject-pills-row {
+    display: flex; gap: 0.5rem; flex-wrap: wrap;
+  }
+  .subj-pill {
+    font-size: 0.72rem; font-weight: 600;
+    padding: 0.3rem 0.75rem;
+    border-radius: 100px;
+    border: 1px solid;
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .subj-pill.locked { border-color: var(--gold); color: var(--gold); background: var(--gold-dim); }
+  .subj-pill.active { border-color: var(--navy-rim); color: var(--steel-lt); background: transparent; }
+  .subj-pill.active.sel { border-color: var(--blue-hi); color: var(--blue-hi); background: rgba(59,130,246,0.08); }
+
+  /* ── SECTION COMMON ── */
+  section { position: relative; }
+
+  .section-label {
+    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--gold);
+    margin-bottom: 0.75rem;
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+  .section-label::after { content: ''; flex: 1; height: 1px; background: var(--navy-rim); max-width: 60px; }
+
+  /* ── MODES SECTION ── */
+  .modes-section {
+    padding: 100px 5vw;
+    background: var(--navy);
+  }
+  .modes-section h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(2rem, 3.5vw, 3rem);
+    font-weight: 800; letter-spacing: -0.03em;
+    margin-bottom: 0.75rem;
+  }
+  .modes-section .sub { color: var(--steel-lt); max-width: 560px; margin-bottom: 3.5rem; font-size: 1.05rem; }
+
+  .modes-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+
+  .mode-card {
+    background: var(--navy-card);
+    border: 1px solid var(--navy-rim);
+    border-radius: var(--radius-xl);
+    padding: 2.5rem;
+    position: relative; overflow: hidden;
+    transition: border-color .25s, transform .25s;
+  }
+  .mode-card:hover { border-color: rgba(240,165,0,0.35); transform: translateY(-3px); }
+  .mode-card::before {
+    content: '';
+    position: absolute; top: 0; right: 0;
+    width: 200px; height: 200px;
+    background: radial-gradient(circle at top right, var(--gold-dim), transparent 70%);
+    pointer-events: none;
+  }
+  .mode-card.oau::before {
+    background: radial-gradient(circle at top right, rgba(59,130,246,0.06), transparent 70%);
+  }
+
+  .mode-badge {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    font-size: 0.68rem; font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 0.3rem 0.8rem; border-radius: 100px;
+    margin-bottom: 1.5rem;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .mode-badge.jamb { background: var(--gold-dim); border: 1px solid rgba(240,165,0,0.3); color: var(--gold); }
+  .mode-badge.oau { background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.25); color: var(--blue-hi); }
+
+  .mode-card h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.6rem; font-weight: 800; letter-spacing: -0.02em;
+    margin-bottom: 0.5rem;
+  }
+  .mode-card p { color: var(--steel-lt); font-size: 0.9rem; line-height: 1.65; margin-bottom: 1.75rem; }
+
+  .mode-specs {
+    display: flex; flex-direction: column; gap: 0.65rem;
+    margin-bottom: 1.75rem;
+  }
+  .mode-spec {
+    display: flex; align-items: flex-start; gap: 0.6rem;
+    font-size: 0.82rem; color: var(--steel-lt);
+  }
+  .mode-spec-icon {
+    width: 20px; height: 20px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--gold-dim); border-radius: 4px;
+    color: var(--gold); font-size: 0.7rem; margin-top: 1px;
+  }
+  .mode-card.oau .mode-spec-icon { background: rgba(59,130,246,0.1); color: var(--blue-hi); }
+
+  .mode-subject-list {
+    display: flex; flex-wrap: wrap; gap: 0.4rem;
+  }
+  .mode-subj {
+    font-size: 0.68rem; font-weight: 600;
+    padding: 0.25rem 0.6rem; border-radius: 4px;
+    border: 1px solid var(--navy-rim); color: var(--steel);
+    font-family: 'JetBrains Mono', monospace; text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .mode-subj.locked { border-color: rgba(240,165,0,0.3); color: var(--gold); background: var(--gold-dim); }
+  .mode-card.oau .mode-subj.locked { border-color: rgba(59,130,246,0.3); color: var(--blue-hi); background: rgba(59,130,246,0.08); }
+
+  /* ── FEATURES STRIP ── */
+  .features-section {
+    padding: 100px 5vw;
+    background: var(--off-white);
+    color: var(--navy);
+  }
+  .features-section .section-label { color: var(--gold); }
+  .features-section .section-label::after { background: #D0D5E0; }
+  .features-section h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(2rem, 3.5vw, 3rem); font-weight: 800; letter-spacing: -0.03em;
+    margin-bottom: 0.75rem; color: var(--navy);
+  }
+  .features-section .sub { color: #5A6475; max-width: 520px; margin-bottom: 3.5rem; }
+
+  .features-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 1.25rem;
+  }
+
+  .feat-card {
+    background: #fff; border: 1px solid #E0E5F0;
+    border-radius: var(--radius-lg); padding: 2rem;
+    transition: border-color .2s, box-shadow .2s, transform .2s;
+  }
+  .feat-card:hover { border-color: var(--gold); box-shadow: 0 12px 40px rgba(0,0,0,0.08); transform: translateY(-3px); }
+
+  .feat-icon {
+    width: 44px; height: 44px;
+    background: var(--navy); border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem; margin-bottom: 1.25rem;
+  }
+  .feat-card h4 {
+    font-family: 'Syne', sans-serif; font-size: 1.05rem; font-weight: 700;
+    color: var(--navy); margin-bottom: 0.5rem; letter-spacing: -0.01em;
+  }
+  .feat-card p { font-size: 0.85rem; color: #6B7585; line-height: 1.65; }
+
+  /* ── ANALYTICS SECTION ── */
+  .analytics-section {
+    padding: 100px 5vw;
+    background: var(--navy);
+    display: grid; grid-template-columns: 1fr 1fr;
+    align-items: center; gap: 5rem;
+  }
+
+  .analytics-section h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(1.8rem, 3vw, 2.75rem); font-weight: 800; letter-spacing: -0.03em;
+    margin-bottom: 0.75rem;
+  }
+  .analytics-section .sub { color: var(--steel-lt); margin-bottom: 2rem; line-height: 1.7; }
+
+  .analytics-points { display: flex; flex-direction: column; gap: 1rem; }
+  .analytics-pt {
+    display: flex; align-items: flex-start; gap: 1rem;
+    padding: 1rem 1.25rem;
+    background: var(--navy-card); border: 1px solid var(--navy-rim);
+    border-radius: var(--radius-md);
+  }
+  .analytics-pt-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 2px; }
+  .analytics-pt-title { font-weight: 600; font-size: 0.9rem; margin-bottom: 0.2rem; }
+  .analytics-pt-desc { font-size: 0.8rem; color: var(--steel); line-height: 1.6; }
+
+  /* Analytics dashboard mockup */
+  .analytics-dash {
+    background: var(--navy-card); border: 1px solid var(--navy-rim);
+    border-radius: var(--radius-xl); overflow: hidden;
+    box-shadow: 0 40px 80px rgba(0,0,0,0.5);
+  }
+  .dash-topbar {
+    padding: 1rem 1.25rem; background: var(--navy-mid);
+    border-bottom: 1px solid var(--navy-rim);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .dash-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.9rem; }
+  .dash-period {
+    font-family: 'JetBrains Mono', monospace; font-size: 0.68rem;
+    color: var(--steel); padding: 0.2rem 0.6rem;
+    background: var(--navy); border-radius: 4px;
+  }
+  .dash-body { padding: 1.25rem; }
+
+  .dash-score-row {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem;
+    margin-bottom: 1.25rem;
+  }
+  .dash-score-box {
+    background: var(--navy-mid); border: 1px solid var(--navy-rim);
+    border-radius: var(--radius-md); padding: 0.85rem 1rem;
+  }
+  .dsb-label { font-size: 0.65rem; color: var(--steel); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 0.3rem; }
+  .dsb-val { font-family: 'Syne', sans-serif; font-size: 1.5rem; font-weight: 800; line-height: 1; }
+  .dsb-val.gold { color: var(--gold); }
+  .dsb-val.green { color: var(--green-ok); }
+  .dsb-val.blue { color: var(--blue-hi); }
+  .dsb-change { font-size: 0.68rem; color: var(--green-ok); margin-top: 0.2rem; font-family: 'JetBrains Mono', monospace; }
+
+  .dash-chart-label { font-size: 0.72rem; color: var(--steel); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 0.75rem; }
+
+  .bar-chart {
+    display: flex; align-items: flex-end; gap: 0.4rem; height: 90px;
+    margin-bottom: 1.25rem;
+  }
+  .bar-grp { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; flex: 1; }
+  .bar { border-radius: 3px 3px 0 0; width: 100%; transition: opacity .2s; }
+  .bar:hover { opacity: 0.8; }
+  .bar-lbl { font-size: 0.55rem; color: var(--steel); font-family: 'JetBrains Mono', monospace; }
+
+  .dash-subj-rows { display: flex; flex-direction: column; gap: 0.5rem; }
+  .dash-subj-row {
+    display: flex; align-items: center; gap: 0.75rem;
+  }
+  .dsr-name { font-size: 0.72rem; color: var(--steel-lt); min-width: 100px; font-family: 'JetBrains Mono', monospace; text-transform: uppercase; font-size: 0.65rem; letter-spacing: 0.05em; }
+  .dsr-bar { flex: 1; height: 6px; background: var(--navy-rim); border-radius: 3px; overflow: hidden; }
+  .dsr-fill { height: 100%; border-radius: 3px; }
+  .dsr-pct { font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; color: var(--white); font-weight: 600; min-width: 32px; text-align: right; }
+
+  /* ── ADMIN SECTION ── */
+  .admin-section {
+    padding: 100px 5vw;
+    background: #0D1526;
+  }
+  .admin-section h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(2rem, 3.5vw, 3rem); font-weight: 800; letter-spacing: -0.03em;
+    margin-bottom: 0.75rem;
+    max-width: 600px;
+  }
+  .admin-section .sub { color: var(--steel-lt); max-width: 560px; margin-bottom: 3.5rem; }
+
+  .admin-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem;
+    margin-bottom: 3rem;
+  }
+  .admin-feat {
+    background: var(--navy-card); border: 1px solid var(--navy-rim);
+    border-radius: var(--radius-lg); padding: 1.75rem;
+    transition: border-color .2s;
+  }
+  .admin-feat:hover { border-color: rgba(240,165,0,0.3); }
+  .admin-feat-icon { font-size: 1.5rem; margin-bottom: 1rem; }
+  .admin-feat h4 { font-family: 'Syne', sans-serif; font-size: 1rem; font-weight: 700; margin-bottom: 0.4rem; }
+  .admin-feat p { font-size: 0.82rem; color: var(--steel); line-height: 1.6; }
+
+  /* ── TESTIMONIALS ── */
+  .testimonials {
+    padding: 100px 5vw;
+    background: var(--off-white);
+    color: var(--navy);
+  }
+  .testimonials h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(1.8rem, 3vw, 2.75rem); font-weight: 800; letter-spacing: -0.03em;
+    margin-bottom: 0.5rem; color: var(--navy);
+  }
+  .testimonials .sub { color: #6B7585; margin-bottom: 3rem; }
+  .testi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; }
+  .testi-card {
+    background: #fff; border: 1px solid #E0E5F0;
+    border-radius: var(--radius-lg); padding: 1.75rem;
+    position: relative;
+  }
+  .testi-quote {
+    font-size: 2rem; color: var(--gold); line-height: 1;
+    font-family: 'Syne', sans-serif; margin-bottom: 0.75rem;
+  }
+  .testi-card p { font-size: 0.875rem; color: #4A5568; line-height: 1.7; margin-bottom: 1.25rem; }
+  .testi-score {
+    font-family: 'JetBrains Mono', monospace; font-size: 0.75rem;
+    color: var(--green-ok); background: rgba(34,197,94,0.08);
+    border: 1px solid rgba(34,197,94,0.2); border-radius: 4px;
+    padding: 0.2rem 0.5rem; display: inline-block; margin-bottom: 0.75rem;
+  }
+  .testi-author { font-weight: 700; font-size: 0.85rem; color: var(--navy); }
+  .testi-detail { font-size: 0.75rem; color: #8892A4; }
+
+  /* ── CTA ── */
+  .cta-section {
+    padding: 120px 5vw;
+    background: var(--navy);
+    text-align: center;
+    position: relative; overflow: hidden;
+  }
+  .cta-section::before {
+    content: '';
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    width: 600px; height: 400px;
+    background: radial-gradient(ellipse, rgba(240,165,0,0.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .cta-section h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(2.2rem, 4vw, 3.5rem); font-weight: 800; letter-spacing: -0.03em;
+    margin-bottom: 1rem; position: relative;
+  }
+  .cta-section .sub { color: var(--steel-lt); max-width: 520px; margin: 0 auto 2.5rem; font-size: 1.05rem; position: relative; }
+  .cta-actions { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; position: relative; }
+
+  /* ── FOOTER ── */
+  footer {
+    background: #070C18; border-top: 1px solid var(--navy-rim);
+    padding: 3rem 5vw 2rem;
+  }
+  .footer-grid {
+    display: grid; grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: 3rem; margin-bottom: 2.5rem;
+  }
+  .footer-brand { }
+  .footer-logo {
+    font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.4rem;
+    color: var(--white); margin-bottom: 0.75rem; display: block;
+    text-decoration: none;
+  }
+  .footer-logo span { color: var(--gold); }
+  .footer-desc { font-size: 0.82rem; color: var(--steel); line-height: 1.7; max-width: 280px; }
+  .footer-col h5 {
+    font-family: 'Syne', sans-serif; font-size: 0.82rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.08em; color: var(--white);
+    margin-bottom: 1rem;
+  }
+  .footer-col ul { list-style: none; display: flex; flex-direction: column; gap: 0.5rem; }
+  .footer-col a { font-size: 0.82rem; color: var(--steel); text-decoration: none; transition: color .2s; }
+  .footer-col a:hover { color: var(--gold); }
+  .footer-bottom {
+    border-top: 1px solid var(--navy-rim); padding-top: 1.5rem;
+    display: flex; justify-content: space-between; align-items: center;
+    flex-wrap: wrap; gap: 1rem;
+  }
+  .footer-bottom p { font-size: 0.78rem; color: #4A5568; }
+  .footer-tag {
+    font-family: 'JetBrains Mono', monospace; font-size: 0.68rem;
+    color: var(--gold); background: var(--gold-dim);
+    border: 1px solid rgba(240,165,0,0.2); border-radius: 4px;
+    padding: 0.2rem 0.6rem;
+  }
+
+  /* ── ANNOUNCEMENT BANNER ── */
+  .topbar-announce {
+    background: var(--gold); padding: 0.5rem 5vw;
+    display: flex; align-items: center; justify-content: center; gap: 1rem;
+    font-size: 0.8rem; font-weight: 600; color: var(--navy);
+    font-family: 'Syne', sans-serif;
+  }
+  .topbar-announce a { color: var(--navy); font-weight: 700; }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 1024px) {
+    .hero { grid-template-columns: 1fr; gap: 3rem; padding-top: 120px; }
+    .modes-grid { grid-template-columns: 1fr; }
+    .features-grid { grid-template-columns: repeat(2, 1fr); }
+    .analytics-section { grid-template-columns: 1fr; gap: 3rem; }
+    .admin-grid { grid-template-columns: repeat(2, 1fr); }
+    .testi-grid { grid-template-columns: repeat(2, 1fr); }
+    .footer-grid { grid-template-columns: 1fr 1fr; gap: 2rem; }
+    .score-badge { display: none; }
+  }
+  @media (max-width: 640px) {
+    .nav-links { display: none; }
+    .features-grid { grid-template-columns: 1fr; }
+    .admin-grid { grid-template-columns: 1fr; }
+    .testi-grid { grid-template-columns: 1fr; }
+    .footer-grid { grid-template-columns: 1fr; }
+    .hero-stats { gap: 1.5rem; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .cbt-card, .score-badge { animation: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Announcement -->
+<div class="topbar-announce">
+  🎯 2025/2026 UTME results are out — start your Post-UTME prep now &nbsp;<a href="#">Get Started →</a>
+</div>
+
+<!-- Nav -->
+<nav>
+  <a href="#" class="nav-logo">Scholar<span>!</span></a>
+  <ul class="nav-links">
+    <li><a href="#modes">Exam Modes</a></li>
+    <li><a href="#features">Features</a></li>
+    <li><a href="#analytics">Analytics</a></li>
+    <li><a href="#admin">For Admins</a></li>
+  </ul>
+  <div class="nav-cta">
+    <a href="#" class="btn-ghost">Log In</a>
+    <a href="#" class="btn-gold">Start Practising</a>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="hero-content">
+    <div class="hero-label">Nigeria's CBT Exam Prep Platform</div>
+    <h1>Train like the<br>real exam.<br><em>Win your place.</em></h1>
+    <p class="hero-sub">
+      Scholar! gives JAMB UTME and OAU Post-UTME candidates a full-replica CBT environment — timed sessions, smart randomisation, real question pools, and sharp analytics that expose exactly what needs work.
+    </p>
+    <div class="hero-actions">
+      <a href="#" class="btn-primary">Start Practising Free →</a>
+      <a href="#modes" class="btn-secondary">See Exam Modes</a>
+    </div>
+    <div class="hero-stats">
+      <div>
+        <div class="hero-stat-val">40<span>k+</span></div>
+        <div class="hero-stat-lbl">Questions Banked</div>
+      </div>
+      <div>
+        <div class="hero-stat-val">12<span>k+</span></div>
+        <div class="hero-stat-lbl">Students Active</div>
+      </div>
+      <div>
+        <div class="hero-stat-val">98<span>%</span></div>
+        <div class="hero-stat-lbl">Session Accuracy</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="hero-visual">
+    <div class="score-badge">
+      <div class="badge-label">Last Session Score</div>
+      <div class="badge-score">72<span>/100</span></div>
+      <div class="badge-sub">Mathematics · 40 questions</div>
+      <div class="badge-bar"><div class="badge-bar-fill"></div></div>
+    </div>
+
+    <div class="cbt-card">
+      <div class="cbt-topbar">
+        <div class="cbt-mode">JAMB UTME · Biology</div>
+        <div class="cbt-timer" id="hero-timer">01:47:23</div>
+        <div class="cbt-qcount">Q 13 of 40</div>
+      </div>
+      <div class="cbt-progress-bar"><div class="cbt-progress-fill"></div></div>
+      <div class="cbt-body">
+        <div class="cbt-subject-tag">🧬 Biology — Genetics</div>
+        <div class="cbt-question">
+          Which of the following best describes the <strong>law of independent assortment</strong> as proposed by Gregor Mendel?
+        </div>
+        <div class="cbt-options">
+          <div class="cbt-option">
+            <div class="cbt-opt-letter">A</div>
+            Alleles of one gene separate independently of alleles of another gene during gamete formation
+          </div>
+          <div class="cbt-option selected">
+            <div class="cbt-opt-letter">B</div>
+            Each organism inherits one allele from each parent for every trait
+          </div>
+          <div class="cbt-option">
+            <div class="cbt-opt-letter">C</div>
+            Dominant traits always mask recessive traits in heterozygous individuals
+          </div>
+          <div class="cbt-option">
+            <div class="cbt-opt-letter">D</div>
+            Genes located on the same chromosome are always inherited together
+          </div>
+        </div>
+      </div>
+      <div class="cbt-nav-row">
+        <button class="cbt-nav-btn">← Prev</button>
+        <div class="cbt-grid-mini" id="q-grid"></div>
+        <button class="cbt-nav-btn next">Next →</button>
+      </div>
+    </div>
+
+    <!-- Subject selection pills row -->
+    <div style="background:var(--navy-card);border:1px solid var(--navy-rim);border-radius:var(--radius-lg);padding:1rem 1.25rem;">
+      <div style="font-size:0.68rem;color:var(--steel);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.65rem;font-family:'JetBrains Mono',monospace;">Subject Selection · JAMB UTME</div>
+      <div class="subject-pills-row">
+        <div class="subj-pill locked">English ✓</div>
+        <div class="subj-pill active sel">Biology</div>
+        <div class="subj-pill active sel">Chemistry</div>
+        <div class="subj-pill active sel">Physics</div>
+        <div class="subj-pill active">Agric Science</div>
+        <div class="subj-pill active">Economics</div>
+        <div class="subj-pill active">Mathematics</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Modes -->
+<section class="modes-section" id="modes">
+  <div class="section-label">Exam Modes</div>
+  <h2>Two exams. One platform.<br>No compromise.</h2>
+  <p class="sub">
+    Scholar! is purpose-built for the Nigerian entrance exam system — not retrofitted from a generic quiz tool. Every session mirrors the real thing.
+  </p>
+  <div class="modes-grid">
+    <div class="mode-card">
+      <div class="mode-badge jamb">🎯 JAMB UTME</div>
+      <h3>Unified Tertiary Matriculation Examination</h3>
+      <p>Full-length UTME simulation with the exact CBT interface format. English Language is compulsory and auto-locked. You select three additional licensed subjects per session.</p>
+      <div class="mode-specs">
+        <div class="mode-spec">
+          <div class="mode-spec-icon">⏱</div>
+          <span><strong>100 questions</strong> · 2 hours · 4 subjects per session</span>
+        </div>
+        <div class="mode-spec">
+          <div class="mode-spec-icon">🔒</div>
+          <span>English Language compulsory and pre-selected</span>
+        </div>
+        <div class="mode-spec">
+          <div class="mode-spec-icon">🎲</div>
+          <span>Smart randomisation across topics, years, and difficulty tiers</span>
+        </div>
+        <div class="mode-spec">
+          <div class="mode-spec-icon">📊</div>
+          <span>Score breakdown by subject and topic after every session</span>
+        </div>
+      </div>
+      <div class="mode-subject-list">
+        <span class="mode-subj locked">English</span>
+        <span class="mode-subj">Mathematics</span>
+        <span class="mode-subj">Biology</span>
+        <span class="mode-subj">Chemistry</span>
+        <span class="mode-subj">Physics</span>
+        <span class="mode-subj">Economics</span>
+        <span class="mode-subj">Literature</span>
+        <span class="mode-subj">Geography</span>
+        <span class="mode-subj">Govt</span>
+        <span class="mode-subj">+ more</span>
+      </div>
+    </div>
+
+    <div class="mode-card oau">
+      <div class="mode-badge oau">🏛 OAU Post-UTME</div>
+      <h3>Obafemi Awolowo University Post-UTME</h3>
+      <p>Targeted Post-UTME prep structured around OAU's actual screening format. Aptitude is compulsory; you choose three subject areas. Each session is exactly 40 questions.</p>
+      <div class="mode-specs">
+        <div class="mode-spec">
+          <div class="mode-spec-icon">⏱</div>
+          <span><strong>40 questions</strong> per session · structured screening format</span>
+        </div>
+        <div class="mode-spec">
+          <div class="mode-spec-icon">🔒</div>
+          <span>Aptitude section compulsory and auto-included</span>
+        </div>
+        <div class="mode-spec">
+          <div class="mode-spec-icon">📚</div>
+          <span>Questions sourced from verified OAU past papers and admin-verified pools</span>
+        </div>
+        <div class="mode-spec">
+          <div class="mode-spec-icon">🎯</div>
+          <span>Faculty-specific subject combinations available</span>
+        </div>
+      </div>
+      <div class="mode-subject-list">
+        <span class="mode-subj locked">Aptitude</span>
+        <span class="mode-subj">Mathematics</span>
+        <span class="mode-subj">Biology</span>
+        <span class="mode-subj">Chemistry</span>
+        <span class="mode-subj">Physics</span>
+        <span class="mode-subj">Economics</span>
+        <span class="mode-subj">Literature</span>
+        <span class="mode-subj">+ more</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Features -->
+<section class="features-section" id="features">
+  <div class="section-label">Platform Features</div>
+  <h2>Every tool a serious<br>candidate needs.</h2>
+  <p class="sub">No fluff, no generic course videos. Scholar! is exam infrastructure — built for students who are measuring and improving, not just studying.</p>
+  <div class="features-grid">
+    <div class="feat-card">
+      <div class="feat-icon">⏱</div>
+      <h4>Realistic Timed Sessions</h4>
+      <p>Every practice session mirrors the real CBT environment. Time pressure is built in from the first question, not added later.</p>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">🎲</div>
+      <h4>Smart Question Randomisation</h4>
+      <p>No two sessions are identical. Questions are drawn across topics, years, and difficulty levels to prevent pattern memorisation.</p>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">📋</div>
+      <h4>Review Mode</h4>
+      <p>After each session, review every question with the correct answer, your choice, and a full explanation. Learn from every miss.</p>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">📈</div>
+      <h4>Performance Analytics</h4>
+      <p>Track your score history, subject-level accuracy, improvement trends, and session duration — all in one dashboard.</p>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">🔐</div>
+      <h4>Licensed Subject Access</h4>
+      <p>Admins license specific subjects to students. You see exactly what you're enrolled for, and nothing more.</p>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">🧩</div>
+      <h4>Admin-Managed Question Banks</h4>
+      <p>Question pools are maintained, tagged, and verified by administrators — organised by subject, topic, difficulty, year, and source.</p>
+    </div>
+  </div>
+</section>
+
+<!-- Analytics -->
+<section class="analytics-section" id="analytics">
+  <div>
+    <div class="section-label">Performance Tracking</div>
+    <h2>Know your numbers.<br>Close your gaps.</h2>
+    <p class="sub">
+      Scholar! tracks every session. You don't just see a score — you see which subjects are pulling you down, which topics need more work, and whether you're improving week on week.
+    </p>
+    <div class="analytics-points">
+      <div class="analytics-pt">
+        <div class="analytics-pt-icon">📊</div>
+        <div>
+          <div class="analytics-pt-title">Subject-level score history</div>
+          <div class="analytics-pt-desc">See your Biology score across all sessions, not just a rolling average. Spot regressions before they hurt your overall mark.</div>
+        </div>
+      </div>
+      <div class="analytics-pt">
+        <div class="analytics-pt-icon">🔍</div>
+        <div>
+          <div class="analytics-pt-title">Topic weakness detection</div>
+          <div class="analytics-pt-desc">Scholar! identifies which topic areas within each subject have the lowest accuracy — and surfaces them in the next session.</div>
+        </div>
+      </div>
+      <div class="analytics-pt">
+        <div class="analytics-pt-icon">⏱</div>
+        <div>
+          <div class="analytics-pt-title">Speed vs accuracy tracking</div>
+          <div class="analytics-pt-desc">Know if you're rushing or overthinking. Time-per-question data helps you calibrate your exam pacing.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="analytics-dash">
+    <div class="dash-topbar">
+      <div class="dash-title">My Performance Dashboard</div>
+      <div class="dash-period">Last 30 days</div>
+    </div>
+    <div class="dash-body">
+      <div class="dash-score-row">
+        <div class="dash-score-box">
+          <div class="dsb-label">Avg Score</div>
+          <div class="dsb-val gold">68%</div>
+          <div class="dsb-change">↑ +4.2%</div>
+        </div>
+        <div class="dash-score-box">
+          <div class="dsb-label">Sessions</div>
+          <div class="dsb-val blue">23</div>
+          <div class="dsb-change">↑ +8 this week</div>
+        </div>
+        <div class="dash-score-box">
+          <div class="dsb-label">Best Score</div>
+          <div class="dsb-val green">84%</div>
+          <div class="dsb-change">Chemistry</div>
+        </div>
+      </div>
+
+      <div class="dash-chart-label">Score Trend (last 8 sessions)</div>
+      <div class="bar-chart">
+        <div class="bar-grp"><div class="bar" style="height:48%;background:var(--navy-rim)"></div><div class="bar-lbl">S1</div></div>
+        <div class="bar-grp"><div class="bar" style="height:55%;background:var(--navy-rim)"></div><div class="bar-lbl">S2</div></div>
+        <div class="bar-grp"><div class="bar" style="height:51%;background:var(--navy-rim)"></div><div class="bar-lbl">S3</div></div>
+        <div class="bar-grp"><div class="bar" style="height:63%;background:var(--gold-dim);border:1px solid rgba(240,165,0,0.3)"></div><div class="bar-lbl">S4</div></div>
+        <div class="bar-grp"><div class="bar" style="height:60%;background:var(--navy-rim)"></div><div class="bar-lbl">S5</div></div>
+        <div class="bar-grp"><div class="bar" style="height:72%;background:var(--gold-dim);border:1px solid rgba(240,165,0,0.3)"></div><div class="bar-lbl">S6</div></div>
+        <div class="bar-grp"><div class="bar" style="height:68%;background:var(--navy-rim)"></div><div class="bar-lbl">S7</div></div>
+        <div class="bar-grp"><div class="bar" style="height:84%;background:var(--gold);opacity:0.85"></div><div class="bar-lbl">S8</div></div>
+      </div>
+
+      <div class="dash-chart-label">Subject Accuracy</div>
+      <div class="dash-subj-rows">
+        <div class="dash-subj-row">
+          <div class="dsr-name">Chemistry</div>
+          <div class="dsr-bar"><div class="dsr-fill" style="width:84%;background:var(--green-ok)"></div></div>
+          <div class="dsr-pct">84%</div>
+        </div>
+        <div class="dash-subj-row">
+          <div class="dsr-name">English</div>
+          <div class="dsr-bar"><div class="dsr-fill" style="width:76%;background:var(--blue-hi)"></div></div>
+          <div class="dsr-pct">76%</div>
+        </div>
+        <div class="dash-subj-row">
+          <div class="dsr-name">Physics</div>
+          <div class="dsr-bar"><div class="dsr-fill" style="width:62%;background:var(--gold)"></div></div>
+          <div class="dsr-pct">62%</div>
+        </div>
+        <div class="dash-subj-row">
+          <div class="dsr-name">Biology</div>
+          <div class="dsr-bar"><div class="dsr-fill" style="width:51%;background:#EF4444"></div></div>
+          <div class="dsr-pct">51%</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Admin -->
+<section class="admin-section" id="admin">
+  <div class="section-label">For Institutions</div>
+  <h2>Admin tools built for schools and prep centres.</h2>
+  <p class="sub">Scholar! isn't just a student app. Administrators get a full management layer — question banks, licensing, class monitoring, and announcements, all from one interface.</p>
+  <div class="admin-grid">
+    <div class="admin-feat">
+      <div class="admin-feat-icon">🗃️</div>
+      <h4>Question Bank Management</h4>
+      <p>Upload, tag, and organise questions by subject, topic, difficulty, year, and source. Maintain quality at scale.</p>
+    </div>
+    <div class="admin-feat">
+      <div class="admin-feat-icon">🔑</div>
+      <h4>Student Licensing</h4>
+      <p>License specific subjects and exam modes to individual students or cohorts. Access is gated and admin-controlled.</p>
+    </div>
+    <div class="admin-feat">
+      <div class="admin-feat-icon">📐</div>
+      <h4>Prep Mode Configuration</h4>
+      <p>Define and configure prep modes — set question counts, time limits, subject pools, and difficulty distributions.</p>
+    </div>
+    <div class="admin-feat">
+      <div class="admin-feat-icon">📣</div>
+      <h4>Announcements</h4>
+      <p>Send targeted announcements to enrolled students. Keep your class informed on schedules, results, and updates.</p>
+    </div>
+    <div class="admin-feat">
+      <div class="admin-feat-icon">📊</div>
+      <h4>Class Analytics</h4>
+      <p>Monitor cohort performance at a glance. Identify students falling behind and subjects needing reinforcement.</p>
+    </div>
+    <div class="admin-feat">
+      <div class="admin-feat-icon">🏫</div>
+      <h4>Class Tools</h4>
+      <p>Group students into classes, assign subjects, manage enrolments, and run structured prep programmes.</p>
+    </div>
+  </div>
+  <div style="display:flex;gap:1rem;flex-wrap:wrap;">
+    <a href="#" class="btn-primary">Request Admin Access →</a>
+    <a href="#" class="btn-secondary">See Admin Demo</a>
+  </div>
+</section>
+
+<!-- Testimonials -->
+<section class="testimonials">
+  <div class="section-label" style="color:var(--gold);">Student Outcomes</div>
+  <h2>From practice sessions<br>to admission letters.</h2>
+  <p class="sub">These students used Scholar! to close the gap between where they were and where they needed to be.</p>
+  <div class="testi-grid">
+    <div class="testi-card">
+      <div class="testi-quote">"</div>
+      <div class="testi-score">JAMB Score: 312 / 400</div>
+      <p>The timed sessions were the difference. I'd always panic in real exams, but after 20+ sessions on Scholar! I knew exactly how to pace myself. Biology went from 48% to 79%.</p>
+      <div class="testi-author">Chidinma Okonkwo</div>
+      <div class="testi-detail">Medicine aspirant · Enugu</div>
+    </div>
+    <div class="testi-card">
+      <div class="testi-quote">"</div>
+      <div class="testi-score">OAU Post-UTME: Admitted</div>
+      <p>Scholar! is the only platform that actually has OAU Post-UTME formatted practice. The 40-question sessions and Aptitude section matched the real paper almost exactly.</p>
+      <div class="testi-author">Tolulope Adeyemi</div>
+      <div class="testi-detail">Engineering · OAU 100L</div>
+    </div>
+    <div class="testi-card">
+      <div class="testi-quote">"</div>
+      <div class="testi-score">JAMB Score: 298 / 400</div>
+      <p>The analytics showed me I was terrible at Comprehension but strong in Lexis. I drilled English for three weeks focused on that and gained 18 marks. You can't do that without data.</p>
+      <div class="testi-author">Emeka Nwosu</div>
+      <div class="testi-detail">Law aspirant · Anambra</div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section">
+  <h2>Your exam date<br>is already set.</h2>
+  <p class="sub">Start practising in a real CBT environment today. The students who beat the cut-off aren't smarter — they prepared smarter.</p>
+  <div class="cta-actions">
+    <a href="#" class="btn-primary" style="font-size:1.05rem;padding:1rem 2.25rem;">Start Practising Free →</a>
+    <a href="#" class="btn-secondary" style="font-size:1.05rem;padding:1rem 2.25rem;">Log In to Dashboard</a>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer>
+  <div class="footer-grid">
+    <div class="footer-brand">
+      <a href="#" class="footer-logo">Scholar<span>!</span></a>
+      <p class="footer-desc">Nigeria's most realistic CBT entrance exam preparation platform. Built for JAMB UTME and OAU Post-UTME candidates who are serious about their cut-off scores.</p>
+    </div>
+    <div class="footer-col">
+      <h5>Platform</h5>
+      <ul>
+        <li><a href="#">JAMB UTME Practice</a></li>
+        <li><a href="#">OAU Post-UTME</a></li>
+        <li><a href="#">Question Banks</a></li>
+        <li><a href="#">Analytics Dashboard</a></li>
+        <li><a href="#">Review Mode</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h5>For Institutions</h5>
+      <ul>
+        <li><a href="#">Admin Portal</a></li>
+        <li><a href="#">School Licensing</a></li>
+        <li><a href="#">Prep Centres</a></li>
+        <li><a href="#">Request Demo</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h5>Company</h5>
+      <ul>
+        <li><a href="#">About Scholar!</a></li>
+        <li><a href="#">Support</a></li>
+        <li><a href="#">Terms of Use</a></li>
+        <li><a href="#">Privacy Policy</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p>© 2025 Scholar! · All rights reserved</p>
+    <div class="footer-tag">Built for Nigerian exam candidates</div>
+  </div>
+</footer>
+
+<script>
+  // Mini question grid
+  const grid = document.getElementById('q-grid');
+  if (grid) {
+    for (let i = 0; i < 40; i++) {
+      const cell = document.createElement('div');
+      cell.className = 'cbt-grid-cell';
+      if (i < 12) cell.classList.add('answered');
+      if (i === 12) cell.classList.add('current');
+      if (i === 7 || i === 9) { cell.classList.remove('answered'); cell.classList.add('flagged'); }
+      grid.appendChild(cell);
+    }
+  }
+
+  // Live countdown timer
+  let totalSecs = 6443; // 1h 47m 23s
+  const timerEl = document.getElementById('hero-timer');
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function updateTimer() {
+    if (!timerEl || totalSecs <= 0) return;
+    totalSecs--;
+    const h = Math.floor(totalSecs / 3600);
+    const m = Math.floor((totalSecs % 3600) / 60);
+    const s = totalSecs % 60;
+    timerEl.textContent = `${pad(h)}:${pad(m)}:${pad(s)}`;
+  }
+  setInterval(updateTimer, 1000);
+
+  // Smooth scroll for nav links
+  document.querySelectorAll('a[href^="#"]').forEach(a => {
+    a.addEventListener('click', e => {
+      const target = document.querySelector(a.getAttribute('href'));
+      if (target) { e.preventDefault(); target.scrollIntoView({ behavior: 'smooth' }); }
+    });
+  });
+
+  // Option click interaction
+  document.querySelectorAll('.cbt-option').forEach(opt => {
+    opt.addEventListener('click', () => {
+      document.querySelectorAll('.cbt-option').forEach(o => o.classList.remove('selected'));
+      opt.classList.add('selected');
+    });
+  });
+</script>
+</body>
+</html>
