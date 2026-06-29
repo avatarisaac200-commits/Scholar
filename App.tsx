@@ -16,6 +16,7 @@ import { DEFAULT_PREP_MODE, PREP_MODE_FEATURES, PREP_MODE_LABELS, getRequiredSub
 import { ExamModeFlowConfig, applySubjectCombinationToTest, getExamModeFlowConfig, getLicensedSubjectsForPrepMode, shouldUseSubjectCombinationFlow } from './lib/examModeFlow';
 
 const Auth = lazy(() => import('./components/Auth'));
+const LandingPage = lazy(() => import('./components/LandingPage'));
 const PrepSelector = lazy(() => import('./components/PrepSelector'));
 const Dashboard = lazy(() => import('./components/Dashboard'));
 const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
@@ -220,7 +221,7 @@ const SubjectCombinationModal: React.FC<{
                     <span className={`h-5 w-5 rounded-md border-2 flex items-center justify-center text-[10px] font-black ${
                       selected ? 'border-amber-500 bg-amber-500 text-slate-950' : 'border-slate-300 text-transparent'
                     }`}>
-                      ✓
+                      OK
                     </span>
                     <span className="text-sm font-black uppercase tracking-wide">{subject}</span>
                   </div>
@@ -289,6 +290,7 @@ const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number, label: st
 };
 
 const viewToPath = (view: ViewState) => {
+  if (view === 'landing') return '/';
   if (view === 'auth') return '/auth';
   if (view === 'verify-email') return '/verify-email';
   if (view === 'prep-selector') return '/prep';
@@ -305,10 +307,11 @@ const viewToPath = (view: ViewState) => {
 
 const pathToView = (path: string): ViewState | null => {
   const normalized = path.toLowerCase();
+  if (normalized === '/') return 'landing';
   if (normalized === '/auth') return 'auth';
   if (normalized === '/verify-email') return 'verify-email';
   if (normalized === '/prep') return 'prep-selector';
-  if (normalized === '/dashboard' || normalized === '/') return 'dashboard';
+  if (normalized === '/dashboard') return 'dashboard';
   if (normalized === '/courses') return 'courses';
   if (normalized === '/videos') return 'videos';
   if (normalized === ATTENDANCE_ROUTE) return 'attendance';
@@ -484,7 +487,7 @@ const SocialProfilePrompt: React.FC<SocialProfilePromptProps> = ({ onCreateNow, 
 const App: React.FC = () => {
   const [showSplash, setShowSplash] = useState(true);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [currentView, setCurrentView] = useState<ViewState>('auth');
+  const [currentView, setCurrentView] = useState<ViewState>('landing');
   const [lastMainView, setLastMainView] = useState<ViewState>('dashboard');
   const [selectedPrepMode, setSelectedPrepMode] = useState<PrepMode>(DEFAULT_PREP_MODE);
   const [adminDefaultTab, setAdminDefaultTab] = useState<string>('questions');
@@ -553,6 +556,7 @@ const App: React.FC = () => {
 
   const getAllowedPostAuthView = (user: User): ViewState => {
     const requestedView = typeof window !== 'undefined' ? pathToView(window.location.pathname) : null;
+    if (requestedView === 'landing') return 'landing';
     if (requestedView === 'attendance') return 'attendance';
     if (requestedView === 'blacklist') return 'blacklist';
     if (requestedView === 'courses') return 'courses';
@@ -1501,7 +1505,9 @@ const App: React.FC = () => {
           ? 'blacklist'
           : requestedView === 'attendance'
             ? 'attendance'
-            : 'auth'
+            : requestedView === 'landing'
+              ? 'landing'
+              : 'auth'
       );
     } finally {
       setIsLoading(false);
@@ -1545,7 +1551,9 @@ const App: React.FC = () => {
             ? 'blacklist'
             : requestedView === 'attendance'
               ? 'attendance'
-              : 'auth'
+              : requestedView === 'landing'
+                ? 'landing'
+                : 'auth'
         );
         setIsLoading(false);
         setFreeAccessEndsAtIso(DEFAULT_FREE_ACCESS_ENDS_AT_ISO);
@@ -1571,6 +1579,7 @@ const App: React.FC = () => {
         if (prev === 'verify-email') return prev;
         if (requestedView === 'blacklist') return 'blacklist';
         if (requestedView === 'attendance') return 'attendance';
+        if (requestedView === 'landing') return 'landing';
         return 'auth';
       });
       setIsLoading(false);
@@ -2039,6 +2048,13 @@ const App: React.FC = () => {
           </div>
         }
       >
+      {currentView === 'landing' && (
+        <LandingPage
+          onGetStarted={() => {
+            setCurrentView(currentUser ? getPostAuthViewForUser(currentUser) : 'auth');
+          }}
+        />
+      )}
       {(currentView === 'auth' || (currentView === 'attendance' && !currentUser)) && <Auth onLogin={checkUserStatus} />}
       {currentView === 'prep-selector' && currentUser && (
         <PrepSelector

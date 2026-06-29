@@ -4,6 +4,7 @@ import { db } from '../firebase';
 import { collection, query, where, onSnapshot, getDocs, getDocsFromServer, limit, addDoc, updateDoc, deleteDoc, doc, orderBy, setDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
 import logo from '../assets/scholar-main.png';
 import { DEFAULT_PREP_MODE, PREP_MODE_FEATURES, PREP_MODE_LABELS, getTestPrepMode, hasActivePrepLicense } from '../lib/prepModes';
+import { getExamModeFlowConfig } from '../lib/examModeFlow';
 import { AppTheme, THEMES } from '../theme';
 import { toast } from './ui/Toast';
 import { confirmDialog } from './ui/ConfirmDialog';
@@ -181,6 +182,8 @@ const Dashboard: React.FC<DashboardProps> = ({
   onOpenSocialProfileSetup
 }) => {
   const prepFeatures = PREP_MODE_FEATURES[prepMode] || PREP_MODE_FEATURES[DEFAULT_PREP_MODE];
+  const examFlowConfig = getExamModeFlowConfig(prepMode);
+  const usesPracticeWorkspace = prepMode === 'utme' || prepMode === 'putme';
   const parseIsoDate = (value?: string) => {
     const ms = Date.parse(value || '');
     return Number.isFinite(ms) ? ms : 0;
@@ -426,50 +429,57 @@ const Dashboard: React.FC<DashboardProps> = ({
     let hasFreshServerSnapshot = false;
     let allowCacheFallback = false;
     const testsQuery = query(collection(db, 'tests'), where('isApproved', '==', true));
+    let unsubTests: () => void = () => undefined;
 
-    const hydrateTestsFromServer = async () => {
-      try {
-        const snap = await getDocsFromServer(testsQuery);
-        hasFreshServerSnapshot = true;
-        const loaded = normalizeTestsForDisplay(
-          snap.docs.map(d => ({ ...d.data(), id: d.id } as MockTest)),
-          testsLimit
-        );
-        setTests(loaded);
-        setErrors(null);
-        setLoading(false);
-      } catch {
-        allowCacheFallback = true;
-        // If server fetch fails, realtime listener fallback below can still hydrate from cache/offline.
-      }
-    };
-    hydrateTestsFromServer();
-
-    const unsubTests = onSnapshot(
-      testsQuery,
-      { includeMetadataChanges: true },
-      (snap) => {
-        const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
-        if (snap.metadata.fromCache && isOnline && !hasFreshServerSnapshot && !allowCacheFallback) {
-          return;
-        }
-        if (!snap.metadata.fromCache) {
+    if (usesPracticeWorkspace) {
+      setTests([]);
+      setLoading(false);
+      setErrors(null);
+    } else {
+      const hydrateTestsFromServer = async () => {
+        try {
+          const snap = await getDocsFromServer(testsQuery);
           hasFreshServerSnapshot = true;
+          const loaded = normalizeTestsForDisplay(
+            snap.docs.map(d => ({ ...d.data(), id: d.id } as MockTest)),
+            testsLimit
+          );
+          setTests(loaded);
+          setErrors(null);
+          setLoading(false);
+        } catch {
+          allowCacheFallback = true;
+          // If server fetch fails, realtime listener fallback below can still hydrate from cache/offline.
         }
-        const loaded = normalizeTestsForDisplay(
-          snap.docs.map(d => ({ ...d.data(), id: d.id } as MockTest)),
-          testsLimit
-        );
-        setTests(loaded);
-        setErrors(null);
-        setLoading(false);
-      },
-      (err) => {
-        console.error('Test load error:', err);
-        setErrors('Unable to load tests. Please check your connection.');
-        setLoading(false);
-      }
-    );
+      };
+      hydrateTestsFromServer();
+
+      unsubTests = onSnapshot(
+        testsQuery,
+        { includeMetadataChanges: true },
+        (snap) => {
+          const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
+          if (snap.metadata.fromCache && isOnline && !hasFreshServerSnapshot && !allowCacheFallback) {
+            return;
+          }
+          if (!snap.metadata.fromCache) {
+            hasFreshServerSnapshot = true;
+          }
+          const loaded = normalizeTestsForDisplay(
+            snap.docs.map(d => ({ ...d.data(), id: d.id } as MockTest)),
+            testsLimit
+          );
+          setTests(loaded);
+          setErrors(null);
+          setLoading(false);
+        },
+        (err) => {
+          console.error('Test load error:', err);
+          setErrors('Unable to load tests. Please check your connection.');
+          setLoading(false);
+        }
+      );
+    }
     const unsubHistory = onSnapshot(
       query(collection(db, 'results'), where('userId', '==', user.id), limit(historyLimit)),
       (snap) => {
@@ -486,10 +496,14 @@ const Dashboard: React.FC<DashboardProps> = ({
       }
     );
     return () => { unsubTests(); unsubHistory(); };
-  }, [user.id, lowDataMode, prepMode]);
+  }, [user.id, lowDataMode, prepMode, usesPracticeWorkspace]);
 
   useEffect(() => {
     const fetchCounts = async () => {
+      if (usesPracticeWorkspace) {
+        setTestCounts({});
+        return;
+      }
       if (lowDataMode) {
         const fallbackCounts: Record<string, number> = {};
         tests.forEach((test) => {
@@ -514,7 +528,8 @@ const Dashboard: React.FC<DashboardProps> = ({
       setTestCounts(counts);
     };
     if (tests.length > 0) fetchCounts();
-  }, [tests, lowDataMode]);
+    if (tests.length === 0) setTestCounts({});
+  }, [tests, lowDataMode, usesPracticeWorkspace]);
 
   useEffect(() => {
     if (activeTab !== 'create') return;
@@ -1049,9 +1064,60 @@ const Dashboard: React.FC<DashboardProps> = ({
     }, { quizMode: true });
   };
 
+  const startPracticeSession = () => {
+    if (!examFlowConfig) return;
+    const nowIso = new Date().toISOString();
+    const practiceTest: MockTest = {
+      id: `practice-${prepMode}-standard`,
+      name: `${PREP_MODE_LABELS[prepMode]} Practice`,
+      description: `Fresh ${PREP_MODE_LABELS[prepMode]} session generated from the licensed question pool.`,
+      sections: [],
+      generationMode: 'dynamic',
+      totalDurationSeconds: examFlowConfig.durationSeconds || 60 * 60,
+      allowRetake: true,
+      maxAttempts: null,
+      prepMode,
+      examTemplateId: prepMode === 'utme' ? 'utme-standard' : 'putme-configurable',
+      examTemplateName: examFlowConfig.title,
+      examStructureSource: prepMode === 'utme' ? 'official' : 'institution-practice',
+      officialStructureNote: `${examFlowConfig.compulsorySubject} is compulsory, plus ${examFlowConfig.additionalSubjectCount} licensed subjects.`,
+      scoringNote: '1 mark per correct answer. Wrong or unanswered questions score 0.',
+      optionCount: 4,
+      officialDetailsStatus: 'specified',
+      createdBy: 'admin-question-pool',
+      creatorName: 'Scholar Question Pool',
+      isApproved: true,
+      createdAt: nowIso
+    };
+    onStartTest(practiceTest);
+  };
+
   const viewableTests = tests
     .filter(test => !test.isArchived)
     .sort((a, b) => parseIsoDate(((b as any).updatedAt || b.createdAt)) - parseIsoDate(((a as any).updatedAt || a.createdAt)));
+
+  const practiceAttempts = history.filter(result => result.testId === `practice-${prepMode}-standard` || String(result.testId || '').startsWith(`practice-${prepMode}`));
+  const completedPracticeAttempts = practiceAttempts.filter(result => result.maxScore > 0);
+  const bestPracticePercent = completedPracticeAttempts.length
+    ? Math.max(...completedPracticeAttempts.map(result => Math.round((result.score / Math.max(1, result.maxScore)) * 100)))
+    : 0;
+  const averagePracticePercent = completedPracticeAttempts.length
+    ? Math.round(completedPracticeAttempts.reduce((sum, result) => sum + ((result.score / Math.max(1, result.maxScore)) * 100), 0) / completedPracticeAttempts.length)
+    : 0;
+  const totalPracticeQuestions = completedPracticeAttempts.reduce((sum, result) => sum + Number(result.totalQuestionCount || 0), 0);
+  const totalPracticeAnswered = completedPracticeAttempts.reduce((sum, result) => sum + Number(result.answeredQuestionCount || 0), 0);
+  const completionRate = totalPracticeQuestions > 0 ? Math.round((totalPracticeAnswered / totalPracticeQuestions) * 100) : 0;
+  const lastPracticeAttempt = completedPracticeAttempts[0];
+  const practiceSubjectRows = Object.values(
+    completedPracticeAttempts.reduce<Record<string, { name: string; score: number; total: number }>>((acc, result) => {
+      (result.sectionBreakdown || []).forEach(section => {
+        if (!acc[section.sectionName]) acc[section.sectionName] = { name: section.sectionName, score: 0, total: 0 };
+        acc[section.sectionName].score += Number(section.score || 0);
+        acc[section.sectionName].total += Number(section.total || 0);
+      });
+      return acc;
+    }, {})
+  ).sort((a, b) => (b.total ? b.score / b.total : 0) - (a.total ? a.score / a.total : 0));
 
   const navTabs: Array<{ id: MainTab; label: string }> = [
     { id: 'home', label: 'Home' },
@@ -1271,6 +1337,138 @@ const Dashboard: React.FC<DashboardProps> = ({
             <div className="space-y-6">
               <div className="space-y-10">
               <div className="space-y-10">
+                {usesPracticeWorkspace && examFlowConfig ? (
+                <section className="space-y-6">
+                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+                    <div className="bg-slate-950 text-white rounded-2xl border border-slate-900 p-6 md:p-8 shadow-sm">
+                      <p className="text-xs font-black uppercase tracking-[0.24em] text-amber-400">{PREP_MODE_LABELS[prepMode]}</p>
+                      <h2 className="mt-3 text-3xl md:text-4xl font-black uppercase tracking-tight">Start Exam-Format Practice</h2>
+                      <p className="mt-4 text-sm md:text-base font-bold leading-relaxed text-slate-300">
+                        Your session is generated from the admin-managed question pool. {examFlowConfig.compulsorySubject} is included automatically, then you choose exactly {examFlowConfig.additionalSubjectCount} licensed subjects.
+                      </p>
+                      <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="bg-white/5 border border-white/10 p-4 rounded-xl">
+                          <p className="text-2xl font-black text-white">{examFlowConfig.totalQuestions}</p>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Questions</p>
+                        </div>
+                        <div className="bg-white/5 border border-white/10 p-4 rounded-xl">
+                          <p className="text-2xl font-black text-white">{Math.round((examFlowConfig.durationSeconds || 0) / 60)}m</p>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Timed</p>
+                        </div>
+                        <div className="bg-white/5 border border-white/10 p-4 rounded-xl">
+                          <p className="text-2xl font-black text-white">{examFlowConfig.additionalSubjectCount + 1}</p>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Sections</p>
+                        </div>
+                        <div className="bg-white/5 border border-white/10 p-4 rounded-xl">
+                          <p className="text-2xl font-black text-white">{practiceAttempts.length}</p>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Attempts</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={isReadOnly}
+                        onClick={startPracticeSession}
+                        className="mt-8 w-full md:w-auto px-8 py-4 bg-amber-500 text-slate-950 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        {isReadOnly ? 'Activate First' : 'Start Practicing'}
+                      </button>
+                    </div>
+
+                    <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
+                      <p className="text-xs font-black uppercase tracking-widest text-slate-500">License & Format</p>
+                      <div className="mt-5 space-y-3">
+                        <div className="flex justify-between gap-4 border-b border-slate-100 pb-3">
+                          <span className="text-sm font-bold text-slate-500">Compulsory</span>
+                          <span className="text-sm font-black text-slate-950">{examFlowConfig.compulsorySubject}</span>
+                        </div>
+                        <div className="flex justify-between gap-4 border-b border-slate-100 pb-3">
+                          <span className="text-sm font-bold text-slate-500">Selectable subjects</span>
+                          <span className="text-sm font-black text-slate-950">{activePrepLicense?.scope === 'subjects' ? activePrepLicense.subjects?.join(', ') || 'None' : 'All subjects'}</span>
+                        </div>
+                        <div className="flex justify-between gap-4 border-b border-slate-100 pb-3">
+                          <span className="text-sm font-bold text-slate-500">Session mix</span>
+                          <span className="text-sm font-black text-slate-950">{examFlowConfig.compulsoryQuestionCount} + {examFlowConfig.additionalSubjectCount} x {examFlowConfig.additionalQuestionCount}</span>
+                        </div>
+                        <div className="flex justify-between gap-4">
+                          <span className="text-sm font-bold text-slate-500">Question source</span>
+                          <span className="text-sm font-black text-slate-950">Admin pool</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
+                      <p className="text-xs font-black uppercase tracking-widest text-slate-400">Average</p>
+                      <p className="mt-2 text-3xl font-black text-slate-950">{averagePracticePercent}%</p>
+                    </div>
+                    <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
+                      <p className="text-xs font-black uppercase tracking-widest text-slate-400">Best Score</p>
+                      <p className="mt-2 text-3xl font-black text-emerald-600">{bestPracticePercent}%</p>
+                    </div>
+                    <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
+                      <p className="text-xs font-black uppercase tracking-widest text-slate-400">Completion</p>
+                      <p className="mt-2 text-3xl font-black text-sky-600">{completionRate}%</p>
+                    </div>
+                    <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
+                      <p className="text-xs font-black uppercase tracking-widest text-slate-400">Last Attempt</p>
+                      <p className="mt-2 text-lg font-black text-slate-950">{lastPracticeAttempt ? new Date(lastPracticeAttempt.completedAt).toLocaleDateString() : 'None'}</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
+                      <h3 className="text-sm font-black uppercase tracking-widest text-slate-950">Subject Performance</h3>
+                      <div className="mt-5 space-y-4">
+                        {practiceSubjectRows.slice(0, 6).map(row => {
+                          const pct = row.total > 0 ? Math.round((row.score / row.total) * 100) : 0;
+                          return (
+                            <div key={row.name}>
+                              <div className="mb-2 flex justify-between text-xs font-black uppercase tracking-widest text-slate-500">
+                                <span>{row.name}</span>
+                                <span>{pct}%</span>
+                              </div>
+                              <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                                <div className="h-full bg-slate-950" style={{ width: `${Math.max(4, Math.min(100, pct))}%` }} />
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {practiceSubjectRows.length === 0 && (
+                          <p className="py-8 text-center text-xs font-black uppercase tracking-widest text-slate-400">No practice data yet.</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
+                      <h3 className="text-sm font-black uppercase tracking-widest text-slate-950">Recent Practice</h3>
+                      <div className="mt-5 space-y-3">
+                        {completedPracticeAttempts.slice(0, 5).map(result => {
+                          const pct = Math.round((result.score / Math.max(1, result.maxScore)) * 100);
+                          return (
+                            <button
+                              key={result.id}
+                              type="button"
+                              disabled={isReadOnly}
+                              onClick={() => onReviewResult(result)}
+                              className="w-full flex items-center justify-between gap-4 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 text-left disabled:opacity-40"
+                            >
+                              <div>
+                                <p className="text-sm font-black text-slate-950">{result.testName}</p>
+                                <p className="text-xs font-bold uppercase tracking-widest text-slate-400">{new Date(result.completedAt).toLocaleString()}</p>
+                              </div>
+                              <span className="text-xl font-black text-slate-950">{pct}%</span>
+                            </button>
+                          );
+                        })}
+                        {completedPracticeAttempts.length === 0 && (
+                          <p className="py-8 text-center text-xs font-black uppercase tracking-widest text-slate-400">Start your first practice session.</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </section>
+                ) : (
                 <section>
                   <div className="flex items-center justify-between mb-8">
                     <h2 className="text-xl font-bold text-slate-950 uppercase">Active Tests</h2>
@@ -1401,6 +1599,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                     )}
                   </div>
                 </section>
+                )}
               </div>
 
             </div>

@@ -524,4 +524,4 @@ export interface CustomThemeConfig {
   border: string;
 }
 
-export type ViewState = 'auth' | 'verify-email' | 'prep-selector' | 'dashboard' | 'courses' | 'videos' | 'attendance' | 'blacklist' | 'exam' | 'admin' | 'root-admin' | 'results' | 'review' | 'update-manual';
+export type ViewState = 'landing' | 'auth' | 'verify-email' | 'prep-selector' | 'dashboard' | 'courses' | 'videos' | 'attendance' | 'blacklist' | 'exam' | 'admin' | 'root-admin' | 'results' | 'review' | 'update-manual';
