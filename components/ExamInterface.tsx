@@ -22,6 +22,7 @@ interface ExamInterfaceProps {
 }
 
 const PENDING_RESULTS_QUEUE_KEY = 'pendingResultsQueue';
+const EXAM_DRAFT_KEY_PREFIX = 'examDraft:';
 
 const queuePendingResult = (payload: Omit<ExamResult, 'id'>) => {
   if (typeof window === 'undefined') return;
@@ -45,7 +46,7 @@ const ExamInterface: React.FC<ExamInterfaceProps> = ({ test, user, instantFeedba
   const [activeSectionIndex, setActiveSectionIndex] = useState<number | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState(test.totalDurationSeconds);
-  const [hasStarted, setHasStarted] = useState(false);
+  const [hasStarted, setHasStarted] = useState(isTimedMode);
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [completedSections, setCompletedSections] = useState<number[]>([]);
   const [showCalculator, setShowCalculator] = useState(false);
@@ -64,6 +65,8 @@ const ExamInterface: React.FC<ExamInterfaceProps> = ({ test, user, instantFeedba
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const endTimeRef = useRef<number | null>(null);
   const hasSubmittedRef = useRef(false);
+  const hasHydratedDraftRef = useRef(false);
+  const draftKey = `${EXAM_DRAFT_KEY_PREFIX}${user.id}:${attemptId || test.id}`;
 
   // Simple shuffle function (Fisher-Yates)
   const shuffleArray = <T,>(array: T[]): T[] => {
@@ -74,6 +77,62 @@ const ExamInterface: React.FC<ExamInterfaceProps> = ({ test, user, instantFeedba
     }
     return shuffled;
   };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      hasHydratedDraftRef.current = true;
+      return;
+    }
+    try {
+      const raw = window.localStorage.getItem(draftKey);
+      if (!raw) {
+        hasHydratedDraftRef.current = true;
+        return;
+      }
+      const draft = JSON.parse(raw);
+      if (!draft || draft.testId !== test.id) {
+        hasHydratedDraftRef.current = true;
+        return;
+      }
+      if (draft.answers && typeof draft.answers === 'object') setAnswers(draft.answers);
+      if (Array.isArray(draft.completedSections)) setCompletedSections(draft.completedSections);
+      if (draft.view === 'lobby' || draft.view === 'testing') setView(draft.view);
+      if (typeof draft.activeSectionIndex === 'number' || draft.activeSectionIndex === null) setActiveSectionIndex(draft.activeSectionIndex);
+      if (typeof draft.currentQuestionIndex === 'number') setCurrentQuestionIndex(Math.max(0, draft.currentQuestionIndex));
+      if (typeof draft.hasStarted === 'boolean') setHasStarted(draft.hasStarted);
+      if (typeof draft.endTime === 'number' && Number.isFinite(draft.endTime)) {
+        endTimeRef.current = draft.endTime;
+        setTimeRemaining(Math.max(0, Math.ceil((draft.endTime - Date.now()) / 1000)));
+      } else if (typeof draft.timeRemaining === 'number') {
+        setTimeRemaining(Math.max(0, draft.timeRemaining));
+      }
+    } catch {
+      // Invalid drafts should not block exam startup.
+    } finally {
+      hasHydratedDraftRef.current = true;
+    }
+  }, [draftKey, test.id]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || hasSubmittedRef.current || !hasHydratedDraftRef.current) return;
+    try {
+      window.localStorage.setItem(draftKey, JSON.stringify({
+        testId: test.id,
+        attemptId: attemptId || null,
+        updatedAt: new Date().toISOString(),
+        view,
+        activeSectionIndex,
+        currentQuestionIndex,
+        timeRemaining,
+        endTime: endTimeRef.current,
+        hasStarted,
+        answers,
+        completedSections
+      }));
+    } catch {
+      // Draft persistence is best-effort.
+    }
+  }, [activeSectionIndex, answers, attemptId, completedSections, currentQuestionIndex, draftKey, hasStarted, test.id, timeRemaining, view]);
 
   useEffect(() => {
     const fetchQuestions = async () => {
@@ -184,12 +243,14 @@ const ExamInterface: React.FC<ExamInterfaceProps> = ({ test, user, instantFeedba
       const docRef = await addDoc(collection(db, 'results'), result);
       await setDoc(doc(db, 'testLeaderboardPublic', docRef.id), toPublicLeaderboardRow(result)).catch(() => undefined);
       await refreshOwnLeaderboardPublic(user.id, { ...result, id: docRef.id }).catch(() => undefined);
+      if (typeof window !== 'undefined') window.localStorage.removeItem(draftKey);
       onFinish({ ...result, id: docRef.id } as ExamResult);
     } catch (e) {
       queuePendingResult(result);
+      if (typeof window !== 'undefined') window.localStorage.removeItem(draftKey);
       onFinish({ ...result, id: 'temp-' + Date.now() } as ExamResult);
     }
-  }, [allQuestions, answers, onFinish, test, user.id, user.name, effectiveSections, attemptId, shuffledSections]);
+  }, [allQuestions, answers, onFinish, test, user.id, user.name, effectiveSections, attemptId, shuffledSections, draftKey]);
 
   useEffect(() => {
     if (!isTimedMode) return;
@@ -245,7 +306,7 @@ const ExamInterface: React.FC<ExamInterfaceProps> = ({ test, user, instantFeedba
   const exitToDashboard = async () => {
     const confirmed = await confirmDialog({
       title: 'Exit test?',
-      message: 'Leave this test and return to dashboard? Your current progress will not be submitted.',
+      message: 'Leave this test and return to dashboard? Your current progress is saved on this device but will not be submitted.',
       confirmText: 'Exit',
       variant: 'danger'
     });

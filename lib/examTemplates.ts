@@ -41,19 +41,20 @@ export const EXAM_TEMPLATES: ExamTemplate[] = [
   {
     id: 'putme-configurable',
     prepMode: 'putme',
-    name: 'OAU P-UTME Configurable',
-    description: 'Flexible OAU P-UTME practice template: English, selected UTME subjects, and aptitude/general reasoning can be adjusted by admin.',
+    name: 'OAU Post-UTME Standard',
+    description: 'OAU Post-UTME practice structure: 10 Aptitude questions plus 10 questions from each of three licensed subjects.',
     durationMinutes: 60,
-    totalQuestions: 80,
+    totalQuestions: 40,
     optionCount: 4,
     scoringNote: 'Practice scoring assumes 1 mark per correct answer with no negative marking. OAU has not published a contrary scoring rule.',
-    officialDetailsStatus: 'unspecified',
-    structureSource: 'admin-configured',
-    officialStructureNote: 'OAU has not officially published exact P-UTME question counts or timing; this is an editable practice default, not an official structure.',
+    officialDetailsStatus: 'specified',
+    structureSource: 'institution-practice',
+    officialStructureNote: 'OAU Post-UTME practice uses 40 questions: 10 Aptitude plus 10 each from three licensed subjects.',
     sections: [
-      { id: 'putme_english', name: 'English', questionCount: 20, marksPerQuestion: 1, subjectFilter: 'English' },
-      { id: 'putme_subjects', name: 'UTME Subject Combination', questionCount: 40, marksPerQuestion: 1 },
-      { id: 'putme_aptitude', name: 'Aptitude / Current Affairs', questionCount: 20, marksPerQuestion: 1, tags: ['aptitude'] }
+      { id: 'putme_aptitude', name: 'Aptitude', questionCount: 10, marksPerQuestion: 1, subjectFilter: 'Aptitude', tags: ['aptitude'] },
+      { id: 'putme_subject_1', name: 'P-UTME Subject 1', questionCount: 10, marksPerQuestion: 1 },
+      { id: 'putme_subject_2', name: 'P-UTME Subject 2', questionCount: 10, marksPerQuestion: 1 },
+      { id: 'putme_subject_3', name: 'P-UTME Subject 3', questionCount: 10, marksPerQuestion: 1 }
     ]
   }
 ];

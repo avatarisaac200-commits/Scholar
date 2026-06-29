@@ -59,6 +59,12 @@ export const getLicenseForPrepMode = (user: User | null, prepMode: PrepMode) => 
 };
 
 const normalizeSubject = (value: string) => value.trim().toLowerCase();
+const COMPULSORY_EXAM_SUBJECTS = new Set([
+  'english',
+  'english language',
+  'use of english',
+  'aptitude'
+]);
 
 const GENERIC_SECTION_NAMES = new Set([
   'section',
@@ -67,7 +73,10 @@ const GENERIC_SECTION_NAMES = new Set([
   'utme subject 1',
   'utme subject 2',
   'utme subject 3',
-  'utme subject combination'
+  'utme subject combination',
+  'p-utme subject 1',
+  'p-utme subject 2',
+  'p-utme subject 3'
 ]);
 
 export const getRequiredSubjectsForSections = (sections: TestSection[] = []) => {
@@ -99,7 +108,10 @@ export const hasActivePrepLicense = (user: User | null, prepMode: PrepMode, requ
     if (!activeByDate) return false;
     if (!requiredSubjects.length || !license.scope || license.scope === 'all') return true;
     const allowed = new Set((license.subjects || []).map(normalizeSubject).filter(Boolean));
-    return requiredSubjects.every((subject) => allowed.has(normalizeSubject(subject)));
+    return requiredSubjects.every((subject) => {
+      const normalized = normalizeSubject(subject);
+      return COMPULSORY_EXAM_SUBJECTS.has(normalized) || allowed.has(normalized);
+    });
   }
 
   if (prepMode === DEFAULT_PREP_MODE && user?.subscriptionStatus === 'active') {

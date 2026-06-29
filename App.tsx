@@ -13,6 +13,7 @@ import { refreshOwnLeaderboardPublic, toPublicLeaderboardRow } from './lib/leade
 import SplashScreen from './components/SplashScreen';
 import PartnershipLogos from './components/PartnershipLogos';
 import { DEFAULT_PREP_MODE, PREP_MODE_FEATURES, PREP_MODE_LABELS, getRequiredSubjectsForTest, getTestPrepMode, hasActivePrepLicense, isPrepFeatureEnabled, normalizePrepMode } from './lib/prepModes';
+import { ExamModeFlowConfig, applySubjectCombinationToTest, getExamModeFlowConfig, getLicensedSubjectsForPrepMode, shouldUseSubjectCombinationFlow } from './lib/examModeFlow';
 
 const Auth = lazy(() => import('./components/Auth'));
 const PrepSelector = lazy(() => import('./components/PrepSelector'));
@@ -106,6 +107,13 @@ type OfflineTestPackage = {
   createdAt?: number;
 };
 
+type SubjectCombinationRequest = {
+  test: MockTest;
+  config: ExamModeFlowConfig;
+  availableSubjects: string[];
+  resolve: (subjects: string[] | null) => void;
+};
+
 const DEFAULT_CUSTOM_THEME: CustomThemeConfig = {
   bgStart: '#f8fafc',
   bgEnd: '#e8eef8',
@@ -140,6 +148,114 @@ const verifyTestPassword = (test: MockTest): 'granted' | 'incorrect' | 'cancelle
   const entered = window.prompt(`Enter password for "${test.name}"`);
   if (entered === null) return 'cancelled';
   return entered.trim() === requiredPassword ? 'granted' : 'incorrect';
+};
+
+const normalizeSubjectKey = (value: string) => value.trim().toLowerCase();
+
+const SubjectCombinationModal: React.FC<{
+  request: SubjectCombinationRequest;
+  onClose: () => void;
+}> = ({ request, onClose }) => {
+  const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
+  const { config, availableSubjects } = request;
+  const selectedSet = new Set(selectedSubjects.map(normalizeSubjectKey));
+  const isReady = selectedSubjects.length === config.additionalSubjectCount;
+
+  const toggleSubject = (subject: string) => {
+    const key = normalizeSubjectKey(subject);
+    setSelectedSubjects(prev => {
+      const exists = prev.some(item => normalizeSubjectKey(item) === key);
+      if (exists) return prev.filter(item => normalizeSubjectKey(item) !== key);
+      if (prev.length >= config.additionalSubjectCount) return prev;
+      return [...prev, subject];
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-[80] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="w-full max-w-2xl rounded-[2rem] bg-white shadow-2xl border border-slate-100 overflow-hidden">
+        <div className="bg-slate-950 px-6 py-5 text-white border-b-4 border-amber-500">
+          <p className="text-xs font-black uppercase tracking-[0.28em] text-amber-500">{PREP_MODE_LABELS[config.prepMode]}</p>
+          <h2 className="mt-2 text-2xl font-black uppercase tracking-tight">{config.title}</h2>
+          <p className="mt-2 text-sm font-bold text-slate-300">{config.instruction}</p>
+        </div>
+
+        <div className="p-6">
+          <div className="mb-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-4 flex items-center justify-between gap-4">
+            <div>
+              <p className="text-xs font-black uppercase tracking-widest text-emerald-700">Compulsory</p>
+              <p className="mt-1 text-base font-black text-slate-950">{config.compulsorySubject}</p>
+            </div>
+            <span className="rounded-full bg-emerald-600 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-white">
+              Locked
+            </span>
+          </div>
+
+          <div className="mb-5 flex items-center justify-between gap-3">
+            <p className="text-xs font-black uppercase tracking-widest text-slate-500">
+              Select {config.additionalSubjectCount} subjects
+            </p>
+            <p className={`text-xs font-black uppercase tracking-widest ${isReady ? 'text-emerald-600' : 'text-amber-600'}`}>
+              {selectedSubjects.length}/{config.additionalSubjectCount}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[45vh] overflow-y-auto pr-1">
+            {availableSubjects.map(subject => {
+              const selected = selectedSet.has(normalizeSubjectKey(subject));
+              const disabled = !selected && selectedSubjects.length >= config.additionalSubjectCount;
+              return (
+                <button
+                  key={subject}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => toggleSubject(subject)}
+                  className={`min-h-14 rounded-2xl border-2 px-4 py-3 text-left transition-all disabled:opacity-45 ${
+                    selected
+                      ? 'border-amber-500 bg-amber-50 text-slate-950'
+                      : 'border-slate-100 bg-white text-slate-700 hover:border-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className={`h-5 w-5 rounded-md border-2 flex items-center justify-center text-[10px] font-black ${
+                      selected ? 'border-amber-500 bg-amber-500 text-slate-950' : 'border-slate-300 text-transparent'
+                    }`}>
+                      ✓
+                    </span>
+                    <span className="text-sm font-black uppercase tracking-wide">{subject}</span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {availableSubjects.length < config.additionalSubjectCount && (
+            <div className="mt-5 rounded-2xl border border-red-100 bg-red-50 p-4 text-xs font-bold text-red-700">
+              This license does not expose enough subjects for this exam format.
+            </div>
+          )}
+
+          <div className="mt-7 flex flex-col sm:flex-row justify-end gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-6 py-3 rounded-xl border border-slate-200 text-xs font-black uppercase tracking-widest text-slate-600"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={!isReady}
+              onClick={() => request.resolve(selectedSubjects)}
+              className="px-6 py-3 rounded-xl bg-slate-950 text-amber-500 text-xs font-black uppercase tracking-widest disabled:opacity-40"
+            >
+              Start Test
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 const normalizeCustomTheme = (value: any): CustomThemeConfig => {
@@ -395,6 +511,7 @@ const App: React.FC = () => {
   const [isSocialProfileReady, setIsSocialProfileReady] = useState(false);
   const [isSocialProfileEditorOpen, setIsSocialProfileEditorOpen] = useState(false);
   const [isSocialProfilePromptDismissed, setIsSocialProfilePromptDismissed] = useState(false);
+  const [subjectCombinationRequest, setSubjectCombinationRequest] = useState<SubjectCombinationRequest | null>(null);
   const isFlushingQueueRef = useRef(false);
   const bootFallbackNotifiedRef = useRef(false);
 
@@ -533,6 +650,65 @@ const App: React.FC = () => {
       return 'Activate your license key in Settings before starting this test.';
     }
     return null;
+  };
+
+  const getAvailableSubjectsForExamFlow = async (userObj: User, prepMode: PrepMode) => {
+    const licensedSubjects = getLicensedSubjectsForPrepMode(userObj, prepMode);
+    const compulsoryKeys = new Set(['english', 'english language', 'use of english', 'aptitude']);
+    if (licensedSubjects.length > 0) {
+      return licensedSubjects
+        .filter(subject => !compulsoryKeys.has(normalizeSubjectKey(subject)))
+        .sort((a, b) => a.localeCompare(b));
+    }
+
+    const snap = await getDocs(query(collection(db, 'questions'), where('prepMode', '==', prepMode), limit(QUESTION_FETCH_LIMIT)));
+    const subjects = new Set<string>();
+    snap.docs.forEach(d => {
+      const question = d.data() as Question;
+      if (question.isActive === false) return;
+      if ((question.status || 'approved') === 'draft') return;
+      const subject = String(question.subject || '').trim();
+      if (!subject || compulsoryKeys.has(normalizeSubjectKey(subject))) return;
+      subjects.add(subject);
+    });
+    return Array.from(subjects).sort((a, b) => a.localeCompare(b));
+  };
+
+  const requestSubjectCombination = (test: MockTest, config: ExamModeFlowConfig, availableSubjects: string[]) => {
+    return new Promise<string[] | null>((resolve) => {
+      setSubjectCombinationRequest({
+        test,
+        config,
+        availableSubjects,
+        resolve: (subjects) => {
+          setSubjectCombinationRequest(null);
+          resolve(subjects);
+        }
+      });
+    });
+  };
+
+  const prepareExamModeTestForLaunch = async (test: MockTest, userObj: User) => {
+    const config = getExamModeFlowConfig(test);
+    if (!config || !shouldUseSubjectCombinationFlow(test)) return test;
+
+    const availableSubjects = await getAvailableSubjectsForExamFlow(userObj, config.prepMode);
+    if (availableSubjects.length < config.additionalSubjectCount) {
+      toast.warning(
+        'Subjects unavailable',
+        `This ${PREP_MODE_LABELS[config.prepMode]} license needs at least ${config.additionalSubjectCount} non-compulsory subjects.`
+      );
+      return null;
+    }
+
+    const selectedSubjects = await requestSubjectCombination(test, config, availableSubjects);
+    if (!selectedSubjects) return null;
+    if (selectedSubjects.length !== config.additionalSubjectCount) {
+      toast.warning('Invalid subjects', `Select exactly ${config.additionalSubjectCount} subjects.`);
+      return null;
+    }
+
+    return applySubjectCombinationToTest(test, selectedSubjects);
   };
 
   useEffect(() => {
@@ -861,7 +1037,8 @@ const App: React.FC = () => {
     section: TestSection,
     allQuestions: Question[],
     usedIds: Set<string>,
-    rng: () => number
+    rng: () => number,
+    deprioritizedIds: Set<string> = new Set()
   ): string[] => {
     const wanted = Math.max(1, Number(section.questionCount || 0));
     const subjects = new Set((section.sampleFilters?.subjects || []).map(s => s.toLowerCase().trim()).filter(Boolean));
@@ -882,8 +1059,9 @@ const App: React.FC = () => {
       return true;
     });
 
+    const unseenPool = filtered.filter(q => !usedIds.has(q.id) && !deprioritizedIds.has(q.id));
     const uniquePool = filtered.filter(q => !usedIds.has(q.id));
-    const pool = uniquePool.length >= wanted ? uniquePool : filtered;
+    const pool = unseenPool.length >= wanted ? unseenPool : (uniquePool.length >= wanted ? uniquePool : filtered);
     if (pool.length < wanted) {
       throw new Error(`Not enough questions for section "${section.name}". Need ${wanted}, found ${pool.length}.`);
     }
@@ -931,7 +1109,7 @@ const App: React.FC = () => {
     return final;
   };
 
-  const buildDynamicSections = async (test: MockTest, seed: number) => {
+  const buildDynamicSections = async (test: MockTest, seed: number, deprioritizedIds: Set<string> = new Set()) => {
     const rng = createSeededRng(seed);
 
     setPackagingState({ message: 'Building your personalized test...', progress: 15 });
@@ -952,12 +1130,14 @@ const App: React.FC = () => {
       qSnap.docs.forEach(d => allQuestions.push({ ...d.data(), id: d.id } as Question));
     }
 
+    const testPrepMode = getTestPrepMode(test);
+    const prepScopedQuestions = allQuestions.filter(q => ((q.prepMode as PrepMode) || DEFAULT_PREP_MODE) === testPrepMode);
     const usedIds = new Set<string>();
     const resolvedSections: TestSection[] = test.sections.map((section) => {
       const sectionPool = section.questionIds?.length
-        ? allQuestions.filter(q => section.questionIds.includes(q.id))
-        : allQuestions;
-      const sampledIds = sampleForDynamicSection(section, sectionPool, usedIds, rng);
+        ? prepScopedQuestions.filter(q => section.questionIds.includes(q.id))
+        : prepScopedQuestions;
+      const sampledIds = sampleForDynamicSection(section, sectionPool, usedIds, rng, deprioritizedIds);
       return {
         ...section,
         questionIds: sampledIds
@@ -974,7 +1154,16 @@ const App: React.FC = () => {
     );
     const attemptNo = attemptsSnap.size + 1;
     const seed = hashStringToSeed(`${userObj.id}:${test.id}:${attemptNo}`);
-    const { resolvedSections, allIds } = await buildDynamicSections(test, seed);
+    const previouslySeenIds = new Set<string>();
+    attemptsSnap.docs.forEach(d => {
+      const result = d.data() as ExamResult;
+      (result.attemptQuestionIds || []).forEach(id => previouslySeenIds.add(id));
+      Object.keys(result.questionSnapshot || {}).forEach(id => previouslySeenIds.add(id));
+      (result.resolvedSections || []).forEach(section => {
+        (section.questionIds || []).forEach(id => previouslySeenIds.add(id));
+      });
+    });
+    const { resolvedSections, allIds } = await buildDynamicSections(test, seed, previouslySeenIds);
     const attemptPayload: Omit<TestAttempt, 'id'> = {
       testId: test.id,
       userId: userObj.id,
@@ -1109,8 +1298,21 @@ const App: React.FC = () => {
         return false;
       }
 
+      const preparedTest = await prepareExamModeTestForLaunch(test, userObj);
+      if (!preparedTest) {
+        clearLinkedTestId();
+        return false;
+      }
+      const preparedLicenseBlockReason = getTestLicenseBlockReason(userObj, preparedTest);
+      if (preparedLicenseBlockReason) {
+        toast.warning('Activation required', preparedLicenseBlockReason);
+        setShowMonetizationModal(true);
+        clearLinkedTestId();
+        return false;
+      }
+
       setActiveQuizMode(false);
-      await startExamWithPackaging(test, userObj);
+      await startExamWithPackaging(preparedTest, userObj);
       clearLinkedTestId();
       return true;
     } catch (err) {
@@ -1822,6 +2024,12 @@ const App: React.FC = () => {
       className={`v2-app theme-${theme} ui-mode-${uiMode} min-h-[100svh] w-full overflow-x-hidden flex flex-col`}
       style={{ minHeight: 'calc(var(--app-vh, 1vh) * 100)', height: 'calc(var(--app-vh, 1vh) * 100)' }}
     >
+      {subjectCombinationRequest && (
+        <SubjectCombinationModal
+          request={subjectCombinationRequest}
+          onClose={() => subjectCombinationRequest.resolve(null)}
+        />
+      )}
       <Suspense
         fallback={
           <div className="h-full w-full flex flex-col items-center justify-center bg-slate-950 p-8 text-center">
@@ -1866,8 +2074,16 @@ const App: React.FC = () => {
               return;
             }
             try {
+              const preparedTest = await prepareExamModeTestForLaunch(test, currentUser);
+              if (!preparedTest) return;
+              const preparedLicenseBlockReason = getTestLicenseBlockReason(currentUser, preparedTest);
+              if (preparedLicenseBlockReason) {
+                setShowMonetizationModal(true);
+                toast.warning('Activation required', preparedLicenseBlockReason);
+                return;
+              }
               setActiveQuizMode(Boolean(options?.quizMode));
-              await startExamWithPackaging(test, currentUser);
+              await startExamWithPackaging(preparedTest, currentUser);
             } catch (err: any) {
               setActiveQuizMode(false);
               console.error('Test packaging error:', err);
